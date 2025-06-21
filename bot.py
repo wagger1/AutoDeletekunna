@@ -1,31 +1,16 @@
 import asyncio
-from os import environ
 from pyrogram import Client, filters, idle
 
-# === Environment variable helpers ===
-def get_env_int(name):
-    try:
-        return int(environ[name])
-    except KeyError:
-        raise ValueError(f"Missing required environment variable: {name}")
-    except ValueError:
-        raise ValueError(f"Environment variable {name} must be an integer")
+# === Hardcoded Config ===
+API_ID = "25578852"
+API_HASH = "1c8e30eae03f9600dfdee4408db4811a"
+BOT_TOKEN = "5937008191:AAHxqNWJSuS3GUBYmLePv7JTCA0Kwn2qwc4"
+SESSION = "BQG1DzwAcBDYic6Ml-7pSmXTigL26hVY8m-ZZdRjxMda9wLFc6BJy0wONQAzwgWnZ3T5OGIN_JpwDvKdourn8yRVmETzuHXow5wnh_rCaDoI4rBT2Vp5Tb3Tt48bpkae6ftDYCWlCz7eDg8akhf8XMB0MG_ckzBxEGtU11QUucWYBTxkhvIHAJMDkyn8APSCh9D8T4ekvyTY1yPEDTdlK2YO-i2hOKeRWr5gd8kTBE-19J8UAgSGoNAnHebFYFDl9pyBrBUUtFWQbSODgKitcAo-W5Znh2Lh0KSG9cJLpIqQMZfWoW-hmJpMmxTA7aPhXrj-Y48Y14mIqS6tJyD5XzT4Y26nIwAAAAFRWb3RAA"
+TIME = 320
 
-def get_env_list(name):
-    value = environ.get(name)
-    if not value:
-        raise ValueError(f"Missing or empty environment variable: {name}")
-    return [int(x) for x in value.split()]
-
-# === Load required environment variables ===
-API_ID = get_env_int("API_ID")
-API_HASH = environ.get("API_HASH") or exit("Missing API_HASH")
-BOT_TOKEN = environ.get("BOT_TOKEN") or exit("Missing BOT_TOKEN")
-SESSION = environ.get("SESSION") or exit("Missing SESSION")
-TIME = get_env_int("TIME")
-
-GROUPS = get_env_list("GROUPS")
-ADMINS = get_env_list("ADMINS")
+GROUPS = [-1001890267303, -1002034897292, -1002182767754, -1001896199579]
+ADMINS = [1739381637]
+WHITE_LIST = [1739381637]
 
 START_MSG = "<b>Hai {},\nI'm a simple bot to delete group messages after a specific time</b>"
 
