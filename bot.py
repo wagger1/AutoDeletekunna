@@ -67,3 +67,29 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+import threading
+from flask import Flask
+from pymongo import MongoClient
+
+# === Flask App for Koyeb health check ===
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "OK", 200
+
+def run_web():
+    app.run(host="0.0.0.0", port=8000)
+
+# Start fake server in background
+threading.Thread(target=run_web).start()
+
+# === MongoDB Setup ===
+try:
+    client = MongoClient("mongodb+srv://HALLOO:HALLOO@cluster0.0bubp1j.mongodb.net/?retryWrites=true&w=majority")
+    db = client.get_database()  # Default DB (can be customized)
+    print("[✅] Connected to MongoDB")
+except Exception as e:
+    print(f"[❌] MongoDB connection error: {e}")
+
+
