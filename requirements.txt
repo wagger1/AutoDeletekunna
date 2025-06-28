@@ -1,5 +1,0 @@
-Pyrogram
-Tgcrypto
-
-pymongo
-flask
