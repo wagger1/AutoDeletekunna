@@ -1,95 +1,48 @@
-import asyncio
-from pyrogram import Client, filters, idle
+# auto-purge bot  – deletes every message in every group 10 minutes after it lands
+#
+# works on Koyeb (Python buildpack) – set 3 env-vars:
+#   API_ID   • API_HASH   • BOT_TOKEN
+# optional:
+#   PURGE_SECONDS   (defaults to 600  = 10 min)
 
-# === Hardcoded Config ===
-API_ID = "25578852"
-API_HASH = "1c8e30eae03f9600dfdee4408db4811a"
-BOT_TOKEN = "5937008191:AAHxqNWJSuS3GUBYmLePv7JTCA0Kwn2qwc4"
-SESSION = "BQG1DzwAcBDYic6Ml-7pSmXTigL26hVY8m-ZZdRjxMda9wLFc6BJy0wONQAzwgWnZ3T5OGIN_JpwDvKdourn8yRVmETzuHXow5wnh_rCaDoI4rBT2Vp5Tb3Tt48bpkae6ftDYCWlCz7eDg8akhf8XMB0MG_ckzBxEGtU11QUucWYBTxkhvIHAJMDkyn8APSCh9D8T4ekvyTY1yPEDTdlK2YO-i2hOKeRWr5gd8kTBE-19J8UAgSGoNAnHebFYFDl9pyBrBUUtFWQbSODgKitcAo-W5Znh2Lh0KSG9cJLpIqQMZfWoW-hmJpMmxTA7aPhXrj-Y48Y14mIqS6tJyD5XzT4Y26nIwAAAAFRWb3RAA"
-TIME = 320
+import os, asyncio, logging
+from pyrogram import Client, filters
+from pyrogram.types import Message
 
-GROUPS = [-1001890267303, -1002034897292, -1002182767754, -1001896199579]
-ADMINS = [1739381637]
-WHITE_LIST = [1739381637]
+# ─── credentials come from environment ────────────────────────────────
+API_ID        = int(os.getenv("API_ID", "0"))
+API_HASH      = os.getenv("API_HASH", "")
+BOT_TOKEN     = os.getenv("BOT_TOKEN", "")
+PURGE_SECONDS = int(os.getenv("PURGE_SECONDS", "600"))   # default 10 min
 
-START_MSG = "<b>Hai {},\nI'm a simple bot to delete group messages after a specific time</b>"
+if not all((API_ID, API_HASH, BOT_TOKEN)):
+    raise RuntimeError("API_ID, API_HASH, BOT_TOKEN must be set as env vars")
 
-# === Clients ===
-User = Client(
-    name="userbot",
-    api_id=API_ID,
-    api_hash=API_HASH,
-    session_string=SESSION,
-    workers=300
+# ─── logging (Koyeb captures stdout) ──────────────────────────────────
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(levelname)s] %(name)s: %(message)s"
 )
 
-Bot = Client(
-    "auto-delete",
-    api_id=API_ID,
-    api_hash=API_HASH,
-    bot_token=BOT_TOKEN,
-    workers=300
+bot = Client(
+    "auto_purge_worker",
+    api_id     = API_ID,
+    api_hash   = API_HASH,
+    bot_token  = BOT_TOKEN
 )
 
-# === Handlers ===
-@Bot.on_message(filters.command("start") & filters.private)
-async def start(bot, message):
-    name = message.from_user.mention if message.from_user else "User"
-    await message.reply(START_MSG.format(name))
+# ─── main handler: schedule deletion for EVERY message in groups ──────
+@bot.on_message(filters.group)
+async def schedule_delete(_, m: Message):
+    async def purge():
+        await asyncio.sleep(PURGE_SECONDS)
+        try:
+            await m.delete()
+        except Exception:
+            pass    # already gone or no rights
 
+    asyncio.create_task(purge())
 
-@User.on_message(filters.chat(GROUPS))
-async def delete(user, message):
-    try:
-        if message.from_user and message.from_user.id in ADMINS:
-            return
-        await asyncio.sleep(TIME)
-        await Bot.delete_messages(message.chat.id, message.message_id)
-    except Exception as e:
-        print(f"[ERROR] Failed to delete message: {e}")
-
-# === Main runner ===
-async def main():
-    await User.start()
-    print("[✅] User Started")
-
-    await Bot.start()
-    print("[✅] Bot Started")
-
-    await idle()
-
-    await User.stop()
-    print("[⚠️] User Stopped")
-
-    await Bot.stop()
-    print("[⚠️] Bot Stopped")
-
-
+# ─── run ──────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    asyncio.run(main())
-import threading
-from flask import Flask
-from pymongo import MongoClient
-
-# === Flask App for Koyeb health check ===
-app = Flask(__name__)
-
-@app.route('/')
-def home():
-    return "OK", 200
-
-def run_web():
-    app.run(host="0.0.0.0", port=8000)
-
-# Start fake server in background
-threading.Thread(target=run_web).start()
-
-# === MongoDB Setup ===
-try:
-    client = MongoClient("mongodb+srv://HALLOO:HALLOO@cluster0.0bubp1j.mongodb.net/?retryWrites=true&w=majority")
-    db = client.get_database()  # Default DB (can be customized)
-    print("[✅] Connected to MongoDB")
-except Exception as e:
-    print(f"[❌] MongoDB connection error: {e}")
-
-
+    bot.run()
