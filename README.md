@@ -1,32 +1,29 @@
-# AutoDelete-V2
-Delete group messages after a specific time
+# Auto-Purge Bot (Pyrogram)
 
-## Variables
-1. `API_ID` : Get from [my.telegram.org](https://my.telegram.org/)
-2. `API_HASH` : Get from [my.telegram.org](https://my.telegram.org)
-3. `BOT_TOKEN` : Your telegram bot token from [@BotFather](https://t.me/BotFather)
-4. `SESSION` : Generate from here [![GenerateStringName](https://img.shields.io/badge/repl.it-generateStringName-yellowgreen)](https://repl.it/@subinps/getStringName)
-5. `GROUPS` : ID of Groups (seperate by spaces)
-6. `ADMINS` : ID of Admins, messages from admins will not delete (seperate by spaces)
-7. `TIME` : Time in seconds
+Deletes **all** messages in any Telegram group 10 minutes after they arrive.
 
-### Make sure:
-- Bot is admin in Groups with delete permission
-- Account used to create SESSION is a member in Groups
+## Deploy on Koyeb
 
-## Deploy in Heroku
- [![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy)
+1.  Create a new **GitHub repo** with the four files:
+    * `bot.py`
+    * `requirements.txt`
+    * `Procfile`
+    * `README.md`
+2.  Push to GitHub, then in Koyeb:
+    * **Create App ▸ GitHub ▸ pick the repo**
+    * Choose **Python buildpack** (detected automatically).
+    * In “Environment Variables” add
+      * `API_ID`
+      * `API_HASH`
+      * `BOT_TOKEN`
+      * *(optional)* `PURGE_SECONDS` – override default 600 s.
+3.  Finish.  Grant the bot **Delete messages** admin right in the groups you
+    want auto-cleaned.
 
-## Deploy in your VPS
+## Local test
 
-```sh
-git clone https://github.com/Arun-TG/AutoDelete-V2
-cd AutoDelete-V2
-pip3 install -r requirements.txt
-# <Create Variables appropriately>
-python3 bot.py
-```
-
-### Credits
-- [Pyrogram](https://github.com/pyrogram/pyrogram)
-- [Arun](https://t.me/Arun_TG)
+```bash
+python3 -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+export API_ID=12345 API_HASH=abcd… BOT_TOKEN=123:abc
+python bot.py
