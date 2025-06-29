@@ -211,8 +211,6 @@ async def send_startup_log():
             f"🛠️ **Build Status**: v2.7.1 [Stable]"
         )
         await bot.send_message(LOG_GROUP_ID, text)
-    except Exception as e:
-        print(f"❌ Failed to send restart log: {e}")
 
 # === Main ===
 async def main():
@@ -221,8 +219,6 @@ async def main():
     print(f"🤖 Bot: @{(await bot.get_me()).username}")
     try:
         await bot.send_message(LOG_GROUP_ID, "✅ Log group connection verified.")
-    except Exception as e:
-        print(f"❌ Cannot access log group: {e}")
     await send_startup_log()
     await idle()
 
