@@ -188,8 +188,13 @@ def index(): return "✅ Bot running"
 def run_flask(): serve(app_flask, host="0.0.0.0", port=PORT)
 threading.Thread(target=run_flask).start()
 
-# Run bot
-print("Bot Started...")
-print("User Started...")
-bot.run()
-user.run()
+# Main run loop
+async def main():
+    await bot.start()
+    await user.start()
+    print(f"🤖 Bot: @{(await bot.get_me()).username}")
+    await send_startup_log()
+    await idle()
+
+print("🔁 Starting bot...")
+async.run(main())
