@@ -3,9 +3,9 @@ import sys
 import asyncio
 import time
 import pytz
+import psutil
 import platform
 import socket
-import psutil
 from datetime import datetime
 from pyrogram import Client, filters, idle
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
@@ -42,34 +42,6 @@ def get_group_delay(chat_id):
 def set_group_delay(chat_id, delay):
     config_col.update_one({"chat_id": chat_id}, {"$set": {"delay": delay}}, upsert=True)
 
-# === Restart Log ===
-async def send_startup_log():
-    try:
-        ist = pytz.timezone("Asia/Kolkata")
-        now = datetime.now(ist)
-        ip = socket.gethostbyname(socket.gethostname())
-        group_count = len(await bot.get_dialogs())
-        mongo_group_count = config_col.count_documents({})
-
-        process = psutil.Process(os.getpid())
-        mem = round(process.memory_info().rss / (1024 * 1024), 2)
-
-        text = (
-            "💥 <b>Bot Restarted</b>\n\n"
-            f"📅 <b>Date</b>: {now.strftime('%Y-%m-%d')}\n"
-            f"⏰ <b>Time</b>: {now.strftime('%I:%M:%S %p')} (Asia/Kolkata)\n"
-            f"🌐 <b>Public IP</b>: {ip}\n"
-            f"👥 <b>Total Groups</b>: {group_count}\n"
-            f"🗂 <b>Mongo Entries</b>: {mongo_group_count}\n"
-            f"💻 <b>Python</b>: {platform.python_version()}\n"
-            f"🖥 <b>OS</b>: {platform.system()} {platform.release()}\n"
-            f"🧠 <b>Memory</b>: {mem} MB\n"
-            "🛠️ <b>Status</b>: v2.7.1 [Stable]"
-        )
-        await bot.send_message(LOG_GROUP_ID, text, parse_mode="html")
-    except Exception as e:
-        print(f"❌ Failed to send startup log: {e}")
-
 # === Message Handlers ===
 @bot.on_message(filters.group & ~filters.service)
 async def auto_delete(_, message: Message):
@@ -97,7 +69,7 @@ async def leave_if_not_admin(_, message: Message):
     except:
         pass
 
-@bot.on_message(filters.private & filters.command("start"))
+@bot.on_message(filters.command("start"))
 async def start_cmd(_, message: Message):
     await message.reply_text(
         f"👋 Hello {message.from_user.mention}!\n\n"
@@ -107,7 +79,7 @@ async def start_cmd(_, message: Message):
         f"Use /help to see more commands."
     )
 
-@bot.on_message(filters.private & filters.command("help"))
+@bot.on_message(filters.command("help"))
 async def help_cmd(_, message: Message):
     await message.reply_text(
         "**🛠 Bot Help**\n\n"
@@ -121,10 +93,11 @@ async def help_cmd(_, message: Message):
         "`/restart` - Restart bot (Owner only)\n"
         "`/settime <seconds>` - Change delete time (Owner only)\n"
         "`/cleanbot` - Delete all bot messages in a group\n"
-        "`/settings` - Inline panel for delay settings"
+        "`/settings` - Inline panel for delay settings\n"
+        "`/status` - Show bot status"
     )
 
-@bot.on_message(filters.private & filters.command("ping"))
+@bot.on_message(filters.command("ping"))
 async def ping_cmd(_, message: Message):
     uptime = time.time() - START_TIME
     hours, rem = divmod(int(uptime), 3600)
@@ -135,7 +108,7 @@ async def ping_cmd(_, message: Message):
     ping_time = (time.time() - start) * 1000
     await m.edit_text(f"🏓 Pong: `{int(ping_time)}ms`\n⏱ Uptime: `{uptime_str}`")
 
-@bot.on_message(filters.private & filters.command("restart"))
+@bot.on_message(filters.command("restart"))
 async def restart_cmd(_, message: Message):
     if message.from_user.id != OWNER_ID:
         return await message.reply_text("⚠️ Only the bot owner can use this command.")
@@ -144,7 +117,7 @@ async def restart_cmd(_, message: Message):
     await send_startup_log()
     os.execl(sys.executable, sys.executable, *sys.argv)
 
-@bot.on_message(filters.private & filters.command("settime"))
+@bot.on_message(filters.command("settime"))
 async def settime_cmd(_, message: Message):
     if message.from_user.id != OWNER_ID:
         return await message.reply_text("⚠️ Only the bot owner can use this command.")
@@ -159,15 +132,7 @@ async def settime_cmd(_, message: Message):
     except:
         await message.reply_text("❌ Invalid input. Use `/settime <seconds>`")
 
-@bot.on_message(filters.private & filters.command("testlog"))
-async def test_log(_, message: Message):
-    try:
-        await bot.send_message(LOG_GROUP_ID, "✅ Test log message from bot.")
-        await message.reply("✅ Log sent to group.")
-    except Exception as e:
-        await message.reply(f"❌ Failed: `{e}`")
-
-@bot.on_message(filters.command("cleanbot") & filters.group)
+@bot.on_message(filters.command("cleanbot"))
 async def clean_bot_messages(_, message: Message):
     if message.from_user.id != OWNER_ID:
         return await message.reply_text("⚠️ Only the bot owner can use this command.")
@@ -181,7 +146,7 @@ async def clean_bot_messages(_, message: Message):
                 continue
     await message.reply_text(f"🧹 Deleted `{deleted}` bot messages.")
 
-@bot.on_message(filters.command("settings") & filters.group)
+@bot.on_message(filters.command("settings"))
 async def settings_panel(_, message: Message):
     keyboard = InlineKeyboardMarkup([
         [
@@ -191,6 +156,47 @@ async def settings_panel(_, message: Message):
         [InlineKeyboardButton("⏱ Current", callback_data="noop")]
     ])
     await message.reply("**⚙️ AutoDelete Settings Panel**", reply_markup=keyboard)
+
+@bot.on_message(filters.command("status"))
+async def status_cmd(_, message: Message):
+    ist = pytz.timezone("Asia/Kolkata")
+    now = datetime.now(ist)
+    mem = psutil.Process().memory_full_info().rss / (1024 ** 2)
+    python_version = platform.python_version()
+    platform_info = platform.system()
+    ip_address = socket.gethostbyname(socket.gethostname())
+
+    group_count = 0
+    try:
+        dialogs = bot.storage.chats
+        group_count = len([i for i in dialogs if str(i).startswith("-100")])
+    except:
+        pass
+
+    doc_count = config_col.count_documents({})
+
+    text = (
+        "💥 **Bot Status**\n\n"
+        f"📅 Date     : {now.strftime('%Y-%m-%d')}  \n"
+        f"⏰ Time     : {now.strftime('%I:%M:%S %p')}  \n"
+        f"🌐 Timezone : Asia/Kolkata  \n"
+        f"🛠️ Build   : v2.7.1 [Stable]\n\n"
+        f"👥 Groups   : {group_count}  \n"
+        f"📂 MongoDB  : {doc_count} entries  \n\n"
+        f"🧠 RAM      : {mem:.2f} MB  \n"
+        f"🐍 Python   : {python_version}  \n"
+        f"💻 Platform : {platform_info}\n"
+        f"🌐 IP       : {ip_address}"
+    )
+    await message.reply(text)
+
+@bot.on_message(filters.command("testlog"))
+async def test_log(_, message: Message):
+    try:
+        await bot.send_message(LOG_GROUP_ID, "✅ Test log message from bot.")
+        await message.reply("✅ Log sent to group.")
+    except Exception as e:
+        await message.reply(f"❌ Failed: `{e}`")
 
 @bot.on_callback_query()
 async def callback_handler(_, cb):
@@ -219,11 +225,22 @@ def run_flask():
 
 threading.Thread(target=run_flask).start()
 
+# === Log Group on Startup ===
+async def send_startup_log():
+    try:
+        ist = pytz.timezone("Asia/Kolkata")
+        now = datetime.now(ist)
+        text = (
+            "💥 **Bot Restarted**\n\n"
+            f"📅 **Date** : {now.strftime('%Y-%m-%d')}\n"
+            f"⏰ **Time** : {now.strftime('%I:%M:%S %p')}\n"
+            f"🌐 **Timezone** : Asia/Kolkata\n"
+            f"🛠️ **Build Status**: v2.7.1 [Stable]"
+        )
+        await bot.send_message(LOG_GROUP_ID, text)
+    except Exception as e:
+        print(f"❌ Failed to send restart log: {e}")
+
 # === Start Bot ===
 print("🔁 Starting bot...")
-async def main():
-    await bot.start()
-    await send_startup_log()
-    await idle()
-
-asyncio.run(main())
+bot.run()
