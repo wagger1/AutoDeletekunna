@@ -1,8 +1,10 @@
 import os
 import asyncio
 import time
+import threading
+from flask import Flask
 from pyrogram import Client, filters
-from pyrogram.types import Message
+from pyrogram.types import Message, ChatMemberUpdated
 
 API_ID = int(os.environ.get("API_ID", 0))
 API_HASH = os.environ.get("API_HASH", "")
@@ -13,7 +15,7 @@ LOG_GROUP_ID = int(os.environ.get("LOG_GROUP_ID", 0))  # Must be numeric
 
 app = Client("autodeletebot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
-
+# ================= AUTO DELETE HANDLER ======================
 @app.on_message(filters.group & ~filters.service)
 async def auto_delete(_, message: Message):
     try:
@@ -24,7 +26,28 @@ async def auto_delete(_, message: Message):
         if LOG_GROUP_ID:
             await app.send_message(LOG_GROUP_ID, f"⚠️ Error deleting message:\n`{e}`")
 
+# ================= DELETE SERVICE MESSAGES ==================
+@app.on_message(filters.service & filters.group)
+async def delete_service(_, message: Message):
+    try:
+        await message.delete()
+    except Exception:
+        pass
 
+# ================= AUTO-LEAVE IF NOT ADMIN ==================
+@app.on_chat_member_updated()
+async def handle_member_update(_, update: ChatMemberUpdated):
+    if update.new_chat_member.user.id == (await app.get_me()).id:
+        try:
+            member = await app.get_chat_member(update.chat.id, update.new_chat_member.user.id)
+            if not member.privileges or not member.privileges.can_delete_messages:
+                await app.leave_chat(update.chat.id)
+                if LOG_GROUP_ID:
+                    await app.send_message(LOG_GROUP_ID, f"🚪 Left group {update.chat.title} (ID: {update.chat.id}) — no delete permission.")
+        except:
+            pass
+
+# ================= COMMANDS ================================
 @app.on_message(filters.private & filters.command("start"))
 async def start_cmd(_, message: Message):
     await message.reply_text(
@@ -34,7 +57,6 @@ async def start_cmd(_, message: Message):
         "➤ Add me to your group and make me admin.\n\n"
         "Use /help to see more commands."
     )
-
 
 @app.on_message(filters.private & filters.command("help"))
 async def help_cmd(_, message: Message):
@@ -52,7 +74,6 @@ async def help_cmd(_, message: Message):
         "`/cleanbot` - Delete all bot messages in a group"
     )
 
-
 @app.on_message(filters.private & filters.command("ping"))
 async def ping_cmd(_, message: Message):
     start = time.time()
@@ -60,7 +81,6 @@ async def ping_cmd(_, message: Message):
     end = time.time()
     ping_time = (end - start) * 1000
     await m.edit_text(f"🏓 Pong! `{int(ping_time)}ms`")
-
 
 @app.on_message(filters.private & filters.command("restart"))
 async def restart_cmd(_, message: Message):
@@ -70,21 +90,16 @@ async def restart_cmd(_, message: Message):
     start_time = time.time()
     msg = await message.reply_text("♻️ Restarting Bot...")
 
-    await asyncio.sleep(5)  # Simulated restart delay
+    await asyncio.sleep(5)
 
     end_time = time.time()
     taken = int(end_time - start_time)
-
-    text = (
-        f"✅ Bot restarted\n"
-        f"🕥 Time taken - {taken} seconds"
-    )
+    text = f"✅ Bot restarted\n🕥 Time taken - {taken} seconds"
 
     await msg.edit_text(text)
 
     if LOG_GROUP_ID:
         await app.send_message(LOG_GROUP_ID, f"♻️ Bot restarted by [{message.from_user.first_name}](tg://user?id={message.from_user.id}).\n{text}")
-
 
 @app.on_message(filters.private & filters.command("settime"))
 async def settime_cmd(_, message: Message):
@@ -108,7 +123,6 @@ async def settime_cmd(_, message: Message):
     except ValueError:
         await message.reply_text("⚠️ Invalid number. Usage: `/settime <seconds>`")
 
-
 @app.on_message(filters.command("cleanbot") & filters.group)
 async def clean_bot_messages(_, message: Message):
     if message.from_user.id != OWNER_ID:
@@ -125,19 +139,20 @@ async def clean_bot_messages(_, message: Message):
 
     await message.reply_text(f"🧹 Deleted `{deleted}` bot messages.")
 
-from flask import Flask
-import threading
-
+# ================= FLASK PANEL ==============================
 app_flask = Flask(__name__)
 
 @app_flask.route('/')
 def index():
     return "✅ Bot is healthy and running!"
 
+@app_flask.route('/status')
+def status():
+    return f"✅ Running | Delete time: {DELETE_TIME}s | Owner: {OWNER_ID}"
+
 def run_flask():
     app_flask.run(host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
 
-# Run Flask in background
 threading.Thread(target=run_flask).start()
 
 print("Bot Started...")
