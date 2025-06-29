@@ -140,8 +140,8 @@ async def restart_cmd(_, message: Message):
         return await message.reply_text("⚠️ Only the bot owner can use this command.")
     msg = await message.reply_text("♻️ Restarting Bot...")
     await asyncio.sleep(1)
-    await send_startup_log()
     os.execl(sys.executable, sys.executable, *sys.argv)
+
 # Set delay
 @bot.on_message(filters.private & filters.command("settime"))
 async def settime_cmd(_, m: Message):
@@ -157,7 +157,6 @@ async def settime_cmd(_, m: Message):
     except: await m.reply("Invalid number.")
 
 # Settings panel
-
 @bot.on_message(filters.command("cleanbot") & filters.group)
 async def clean_bot_messages(_, message: Message):
     if message.from_user.id != OWNER_ID:
@@ -198,28 +197,11 @@ async def callback_handler(_, cb):
     elif cb.data == "noop":
         await cb.answer(f"Current Delay: {delay}s", show_alert=True)
 
-# === Logging ===
-async def send_startup_log():
-    try:
-        ist = pytz.timezone("Asia/Kolkata")
-        now = datetime.now(ist)
-        text = (
-            "💥 **Bot Restarted**\n\n"
-            f"📅 **Date** : {now.strftime('%Y-%m-%d')}\n"
-            f"⏰ **Time** : {now.strftime('%I:%M:%S %p')}\n"
-            f"🌐 **Timezone** : Asia/Kolkata\n"
-            f"🛠️ **Build Status**: v2.7.1 [Stable]"
-        )
-        await bot.send_message(LOG_GROUP_ID, text)
-
 # === Main ===
 async def main():
     await bot.start()
     await user.start()
     print(f"🤖 Bot: @{(await bot.get_me()).username}")
-    try:
-        await bot.send_message(LOG_GROUP_ID, "✅ Log group connection verified.")
-    await send_startup_log()
     await idle()
 
 print("🔁 Starting bot...")
