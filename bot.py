@@ -197,20 +197,21 @@ threading.Thread(target=run_flask).start()
 
 # Send startup log when redeployed
 async def send_startup_log():
-    if LOG_GROUP_ID:
+    try:
+        await app.get_chat(LOG_GROUP_ID)  # Bootstrap the peer
         ist = pytz.timezone("Asia/Kolkata")
         now = datetime.now(ist)
-        log_text = (
-            "💥 **Bᴏᴛ Rᴇsᴛᴀʀᴛᴇᴅ**\n\n"
-            f"📅 **Dᴀᴛᴇ** : {now.strftime('%Y-%m-%d')}\n"
-            f"⏰ **Tɪᴍᴇ** : {now.strftime('%I:%M:%S %p')}\n"
-            f"🌐 **Tɪᴍᴇᴢᴏɴᴇ** : Asia/Kolkata\n"
-            f"🛠️ **Bᴜɪʟᴅ Sᴛᴀᴛᴜs**: v2.7.1 [Stable]"
+        text = (
+            "💥 **Bot Restarted**\n\n"
+            f"📅 **Date** : {now.strftime('%Y-%m-%d')}\n"
+            f"⏰ **Time** : {now.strftime('%H:%M:%S %p')}\n"
+            f"🌐 **Timezone** : Asia/Kolkata\n"
+            f"🛠️ **Build Status**: v2.7.1 [Stable]"
         )
-        try:
-            await app.send_message(LOG_GROUP_ID, log_text)
-        except Exception as e:
-            print(f"❌ Failed to send restart log: {e}")
+        await app.send_message(LOG_GROUP_ID, text)
+        print("✅ Restart log sent.")
+    except Exception as e:
+        print(f"❌ Failed to send restart log: {e}")
 
 # Run bot with startup log
 print("Bot Started...")
