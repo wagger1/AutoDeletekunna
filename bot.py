@@ -268,6 +268,4 @@ if __name__ == "__main__":
         daemon=True,
     ).start()
     bot.run()
-    await send_startup_log()Add commentMore actions
-    print("✅ Bot started and startup log sent.")
-    await idle()
+   
