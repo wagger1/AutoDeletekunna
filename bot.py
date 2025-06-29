@@ -261,9 +261,8 @@ async def send_startup_log():
         print(f"❌ Failed to send restart log: {e}")
 
 # === Start Bot ===
-async def main():
-    await bot.run()
-    await send_startup_log()
-    print("✅ Bot started and startup log sent.")
-    await idle()
-    await bot.stop()
+send_startup_log()
+print("✅ Bot started and startup log sent.")
+idle()
+bot.run()
+bot.stop()
