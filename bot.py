@@ -263,6 +263,13 @@ async def send_startup_log():
         print(f"❌ Failed to send restart log: {e}")
 
 # === Start Bot ===
-print("🔁 Starting bot...")
-asyncio.get_event_loop().run_until_complete(send_startup_log())
-bot.run()
+async def main():
+    await bot.start()
+    await send_startup_log()
+    print("✅ Bot started and startup log sent.")
+    await idle()
+    await bot.stop()
+
+if __name__ == "__main__":
+    print("🔁 Starting bot...")
+    asyncio.run(main())
