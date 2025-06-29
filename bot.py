@@ -140,6 +140,38 @@ async def refresh_status(client, cb):
     await cb.message.edit_text(f"✅ Bot is online.\n🧠 Group configs: {count}\n⏱️ Default delay: {DEFAULT_PURGE_SECONDS}s", reply_markup=cb.message.reply_markup)
     await cb.answer("Refreshed")
 
+# --- Start & Help ---
+@bot.on_message(filters.command("start") & filters.private)
+async def start_command(client: Client, message: Message):
+    await message.reply(
+        "**👋 Welcome to AutoDelete Bot!**\n\n"
+        "I'm here to help you auto-delete messages from your groups.\n"
+        "Add me to your group and promote me to admin.\n\n"
+        "Use /help to see available commands and features."
+    )
+
+@bot.on_message(filters.command("help"))
+async def help_command(client: Client, message: Message):
+    text = (
+        "**🛠 AutoDelete Bot Help Menu**\n\n"
+        "**Main Features:**\n"
+        "• 🧹 Auto-deletes messages after a delay\n"
+        "• 🔗 Removes messages with links\n"
+        "• 👤 Removes messages with @mentions\n"
+        "• ⚙️ Fully customizable per group\n\n"
+        "**Admin Commands (in groups):**\n"
+        "`/setdelay <seconds>` – Set delete delay\n"
+        "`/getdelay` – Show current delay\n"
+        "`/blocklinks on/off` – Toggle link blocking\n"
+        "`/blockmentions on/off` – Toggle mention blocking\n"
+        "`/whitelistuser @username` – Allow usernames\n"
+        "`/whitelistdomain domain.com` – Allow domains\n"
+        "`/settings` – Inline button panel\n\n"
+        "**Private Commands:**\n"
+        "`/start` – Show welcome\n"
+        "`/status` – Bot and config count\n\n"
+        "__Add me to your group and promote me to admin!__"
+    )
 @bot.on_message(filters.command("setdelay") & filters.group)
 async def set_delay(client, message: Message):
     if len(message.command) < 2 or not message.command[1].isdigit():
