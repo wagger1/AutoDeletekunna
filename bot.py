@@ -17,7 +17,7 @@ API_HASH = os.environ.get("API_HASH", "")
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 DELETE_TIME = int(os.environ.get("DELETE_TIME", 60))
 OWNER_ID = int(os.environ.get("OWNER_ID", 0))
-LOG_GROUP_ID = int(os.environ.get("LOG_GROUP_ID", "-1001234567890"))  # Make sure it's an integer
+LOG_GROUP_ID = int(os.environ.get("LOG_GROUP_ID", "-1002641300148"))  # Make sure it's an integer
 MONGO_URI = os.environ.get("MONGO_URI", "")
 
 # Uptime tracking
