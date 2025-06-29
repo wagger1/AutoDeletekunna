@@ -30,8 +30,6 @@ START_TIME = time.time()
 mongo_client = MongoClient(MONGO_URI)
 db = mongo_client["autodelete"]
 config_col = db["configs"]
-group_col = db["groups"]
-log_col = db["logs"]
 
 # === Pyrogram Client ===
 bot = Client("autodeletebot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
@@ -46,24 +44,9 @@ def set_group_delay(chat_id, delay):
     print(f"[Mongo] Setting delay for {chat_id} to {delay}")
     config_col.update_one({"chat_id": chat_id}, {"$set": {"delay": delay}}, upsert=True)
 
-def save_group(chat):
-    group_col.update_one({"chat_id": chat.id}, {"$set": {
-        "chat_id": chat.id,
-        "title": chat.title,
-        "type": chat.type
-    }}, upsert=True)
-
-def save_log(chat_id, log):
-    log_col.insert_one({
-        "chat_id": chat_id,
-        "log": log,
-        "timestamp": datetime.utcnow()
-    })
-
 # === Message Handlers ===
 @bot.on_message(filters.group & ~filters.service)
 async def auto_delete(_, message: Message):
-    save_group(message.chat)
     delay = get_group_delay(message.chat.id)
     try:
         await asyncio.sleep(delay)
@@ -256,9 +239,8 @@ async def send_startup_log():
             f"🌐 **Timezone** : Asia/Kolkata\n"
             f"🛠️ **Build Status**: v2.7.1 [Stable]"
         )
-        await bot.send_message(LOG_GROUP_ID, text)
-        save_log(LOG_GROUP_ID, text)
-        print("✅ Restart log sent.")
+        await bot.send_message(OWNER_ID, text)  # 👈 Send to bot owner's PM
+        print("✅ Restart log sent to owner.")
     except Exception as e:
         print(f"❌ Failed to send restart log: {e}")
 
