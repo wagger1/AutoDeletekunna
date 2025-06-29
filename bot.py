@@ -129,11 +129,11 @@ async def settime_cmd(_, message: Message):
 
 @bot.on_message(filters.private & filters.command("testlog"))
 async def test_log(_, message: Message):
-try:
-await app.send_message(LOG_GROUP_ID, "✅ Test log message from bot.")
-await message.reply("✅ Log sent to group.")
-except Exception as e:
-await message.reply(f"❌ Failed: {e}")
+    try:
+        await bot.send_message(LOG_GROUP_ID, "✅ Test log message from bot.")
+        await message.reply("✅ Log sent to group.")
+    except Exception as e:
+        await message.reply(f"❌ Failed: `{e}`")
 
 @bot.on_message(filters.command("cleanbot") & filters.group)
 async def clean_bot_messages(_, message: Message):
