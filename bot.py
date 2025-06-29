@@ -5,6 +5,8 @@ import logging
 from pyrogram import Client, filters
 from pyrogram.types import Message
 from pymongo import MongoClient
+import threading
+from flask import Flask
 
 API_ID        = int(os.getenv("API_ID", "0"))
 API_HASH      = os.getenv("API_HASH", "")
@@ -201,5 +203,18 @@ async def help_command(client: Client, message: Message):
         "`/status` – Check bot status\n\n"
         "__Add me to your group and make me admin to get started!__"
     )
+
+# === Flask App for Koyeb health check ===
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "OK", 200
+
+def run_web():
+    app.run(host="0.0.0.0", port=8000)
+
+# Start fake server in background
+threading.Thread(target=run_web).start()
 
 bot.run()
