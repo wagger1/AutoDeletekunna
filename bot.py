@@ -48,7 +48,8 @@ async def help_cmd(_, message: Message):
         "`/help` - Show this help message\n"
         "`/ping` - Check bot status\n"
         "`/restart` - Restart bot (Owner only)\n"
-        "`/settime <seconds>` - Change delete time (Owner only)"
+        "`/settime <seconds>` - Change delete time (Owner only)\n"
+        "`/cleanbot` - Delete all bot messages in a group"
     )
 
 
@@ -75,8 +76,8 @@ async def restart_cmd(_, message: Message):
     taken = int(end_time - start_time)
 
     text = (
-        f"✅ ʙᴏᴛ ʀᴇsᴛᴀʀᴛᴇᴅ\n"
-        f"🕥 ᴛɪᴍᴇ ᴛᴀᴋᴇɴ - {taken} sᴇᴄᴏɴᴅs"
+        f"✅ Bot restarted\n"
+        f"🕥 Time taken - {taken} seconds"
     )
 
     await msg.edit_text(text)
@@ -106,6 +107,23 @@ async def settime_cmd(_, message: Message):
             await app.send_message(LOG_GROUP_ID, f"🛠 Auto-delete time changed to `{DELETE_TIME}` seconds by [{message.from_user.first_name}](tg://user?id={message.from_user.id}).")
     except ValueError:
         await message.reply_text("⚠️ Invalid number. Usage: `/settime <seconds>`")
+
+
+@app.on_message(filters.command("cleanbot") & filters.group)
+async def clean_bot_messages(_, message: Message):
+    if message.from_user.id != OWNER_ID:
+        return await message.reply_text("⚠️ Only the bot owner can use this command.")
+
+    deleted = 0
+    async for msg in app.get_chat_history(message.chat.id, limit=300):
+        if msg.from_user and msg.from_user.is_bot:
+            try:
+                await msg.delete()
+                deleted += 1
+            except:
+                continue
+
+    await message.reply_text(f"🧹 Deleted `{deleted}` bot messages.")
 
 from flask import Flask
 import threading
