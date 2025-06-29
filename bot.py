@@ -188,22 +188,7 @@ def index(): return "✅ Bot running"
 def run_flask(): serve(app_flask, host="0.0.0.0", port=PORT)
 threading.Thread(target=run_flask).start()
 
-async def main():
-    await user.start()
-    print("[✅] User Started")
-
-    await bot.start()
-
-    await send_startup_log()
-    print("[✅] Bot Started")
-    print(f"🤖 Bot: @{(await bot.get_me()).username}")
-    await idle()
-
-    await user.stop()
-    print("[⚠️] User Stopped")
-
-    await bot.stop()
-    print("[⚠️] Bot Stopped")
-
-if __name__ == "__main__":
-    asyncio.run(main())
+# Run bot
+print("Bot Started...")
+print("User Started...")
+app.run()
