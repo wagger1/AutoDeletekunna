@@ -3,6 +3,9 @@ import sys
 import asyncio
 import time
 import pytz
+import platform
+import socket
+import psutil
 from datetime import datetime
 from pyrogram import Client, filters, idle
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
@@ -38,6 +41,34 @@ def get_group_delay(chat_id):
 
 def set_group_delay(chat_id, delay):
     config_col.update_one({"chat_id": chat_id}, {"$set": {"delay": delay}}, upsert=True)
+
+# === Restart Log ===
+async def send_startup_log():
+    try:
+        ist = pytz.timezone("Asia/Kolkata")
+        now = datetime.now(ist)
+        ip = socket.gethostbyname(socket.gethostname())
+        group_count = len(await bot.get_dialogs())
+        mongo_group_count = config_col.count_documents({})
+
+        process = psutil.Process(os.getpid())
+        mem = round(process.memory_info().rss / (1024 * 1024), 2)
+
+        text = (
+            "💥 <b>Bot Restarted</b>\n\n"
+            f"📅 <b>Date</b>: {now.strftime('%Y-%m-%d')}\n"
+            f"⏰ <b>Time</b>: {now.strftime('%I:%M:%S %p')} (Asia/Kolkata)\n"
+            f"🌐 <b>Public IP</b>: {ip}\n"
+            f"👥 <b>Total Groups</b>: {group_count}\n"
+            f"🗂 <b>Mongo Entries</b>: {mongo_group_count}\n"
+            f"💻 <b>Python</b>: {platform.python_version()}\n"
+            f"🖥 <b>OS</b>: {platform.system()} {platform.release()}\n"
+            f"🧠 <b>Memory</b>: {mem} MB\n"
+            "🛠️ <b>Status</b>: v2.7.1 [Stable]"
+        )
+        await bot.send_message(LOG_GROUP_ID, text, parse_mode="html")
+    except Exception as e:
+        print(f"❌ Failed to send startup log: {e}")
 
 # === Message Handlers ===
 @bot.on_message(filters.group & ~filters.service)
@@ -110,6 +141,7 @@ async def restart_cmd(_, message: Message):
         return await message.reply_text("⚠️ Only the bot owner can use this command.")
     msg = await message.reply_text("♻️ Restarting Bot...")
     await asyncio.sleep(1)
+    await send_startup_log()
     os.execl(sys.executable, sys.executable, *sys.argv)
 
 @bot.on_message(filters.private & filters.command("settime"))
@@ -176,17 +208,22 @@ async def callback_handler(_, cb):
         await cb.answer(f"Current Delay: {delay}s", show_alert=True)
 
 # === Flask for Koyeb ===
-app_flask = Flask(name)
+app_flask = Flask(__name__)
 
 @app_flask.route('/')
 def index():
-return "✅ Bot is healthy and running!"
+    return "✅ Bot is healthy and running!"
 
 def run_flask():
-serve(app_flask, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
+    serve(app_flask, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
 
 threading.Thread(target=run_flask).start()
 
 # === Start Bot ===
 print("🔁 Starting bot...")
-bot.run()
+async def main():
+    await bot.start()
+    await send_startup_log()
+    await idle()
+
+asyncio.run(main())
