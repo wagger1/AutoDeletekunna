@@ -1,4 +1,5 @@
 import os
+import sys
 import asyncio
 import time
 import pytz
@@ -59,8 +60,8 @@ async def start_cmd(_, message: Message):
     await message.reply_text(
         f"👋 Hello {message.from_user.mention}!\n\n"
         "I am an Auto Delete Bot for Telegram Groups.\n"
-        f"➤ I will delete messages after `{DELETE_TIME}` seconds.\n"
-        "➤ Add me to your group and make me admin.\n\n"
+        f"➡️ I will delete messages after `{DELETE_TIME}` seconds.\n"
+        "➡️ Add me to your group and make me admin.\n\n"
         "Use /help to see more commands."
     )
 
@@ -69,9 +70,9 @@ async def start_cmd(_, message: Message):
 async def help_cmd(_, message: Message):
     await message.reply_text(
         "**🛠 Bot Help**\n\n"
-        "➤ Add me to your group.\n"
-        "➤ Promote me as Admin with 'Delete Messages' permission.\n"
-        f"➤ I will delete group messages after `{DELETE_TIME}` seconds.\n\n"
+        "➡️ Add me to your group.\n"
+        "➡️ Promote me as Admin with 'Delete Messages' permission.\n"
+        f"➡️ I will delete group messages after `{DELETE_TIME}` seconds.\n\n"
         "**Available Commands:**\n"
         "`/start` - Show welcome message\n"
         "`/help` - Show this help message\n"
@@ -114,7 +115,7 @@ async def restart_cmd(_, message: Message):
         log_text = (
             "💥 **Bᴏᴛ Rᴇsᴛᴀʀᴛᴇᴅ**\n\n"
             f"📅 **Dᴀᴛᴇ** : {now.strftime('%Y-%m-%d')}\n"
-            f"⏰ **Tɪᴍᴇ** : {now.strftime('%H:%M:%S %p')}\n"
+            f"⏰ **Tɪᴍᴇ** : {now.strftime('%I:%M:%S %p')}\n"
             f"🌐 **Tɪᴍᴇᴢᴏɴᴇ** : Asia/Kolkata\n"
             f"🛠️ **Bᴜɪʟᴅ Sᴛᴀᴛᴜs**: v2.7.1 [Stable]"
         )
@@ -194,6 +195,29 @@ def run_flask():
 # Run Flask in background using Waitress (no dev server warning)
 threading.Thread(target=run_flask).start()
 
-# Run bot
+# Send startup log when redeployed
+async def send_startup_log():
+    if LOG_GROUP_ID:
+        ist = pytz.timezone("Asia/Kolkata")
+        now = datetime.now(ist)
+        log_text = (
+            "💥 **Bᴏᴛ Rᴇsᴛᴀʀᴛᴇᴅ**\n\n"
+            f"📅 **Dᴀᴛᴇ** : {now.strftime('%Y-%m-%d')}\n"
+            f"⏰ **Tɪᴍᴇ** : {now.strftime('%I:%M:%S %p')}\n"
+            f"🌐 **Tɪᴍᴇᴢᴏɴᴇ** : Asia/Kolkata\n"
+            f"🛠️ **Bᴜɪʟᴅ Sᴛᴀᴛᴜs**: v2.7.1 [Stable]"
+        )
+        try:
+            await app.send_message(LOG_GROUP_ID, log_text)
+        except Exception as e:
+            print(f"❌ Failed to send restart log: {e}")
+
+# Run bot with startup log
 print("Bot Started...")
-app.run()
+
+async def main():
+    await app.start()
+    await send_startup_log()
+    await idle()
+
+asyncio.run(main())
