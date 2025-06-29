@@ -7,6 +7,7 @@ from flask import Flask, request, jsonify
 from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from pymongo import MongoClient
+import sys
 
 # ── Environment ────────────────────────────────────────────────────────────
 API_ID               = int(os.getenv("API_ID", "0"))
@@ -21,8 +22,12 @@ if not all((API_ID, API_HASH, BOT_TOKEN, MONGO_URI)):
     raise RuntimeError("Missing required environment variables.")
 
 logging.basicConfig(
-    level=logging.INFO,
-    format="[%(levelname)s] %(name)s: %(message)s"
+    level=logging.DEBUG,
+    format="[%(asctime)s] [%(levelname)s] %(name)s: %(message)s",
+    handlers=[
+        logging.StreamHandler(sys.stdout),                     # Console output
+        logging.FileHandler("bot.log", encoding="utf-8")       # Log file
+    ]
 )
 
 # ── DB ─────────────────────────────────────────────────────────────────────
