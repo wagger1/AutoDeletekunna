@@ -30,6 +30,7 @@ START_TIME = time.time()
 mongo_client = MongoClient(MONGO_URI)
 db = mongo_client["autodelete"]
 config_col = db["configs"]
+group_col = db["groups"]
 
 # === Pyrogram Client ===
 bot = Client("autodeletebot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
@@ -37,12 +38,13 @@ bot = Client("autodeletebot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TO
 # === Helper Functions ===
 def get_group_delay(chat_id):
     doc = config_col.find_one({"chat_id": chat_id})
-    print(f"[Mongo] Fetched config for {chat_id}: {doc}")
     return doc["delay"] if doc else DELETE_TIME
 
 def set_group_delay(chat_id, delay):
-    print(f"[Mongo] Setting delay for {chat_id} to {delay}")
     config_col.update_one({"chat_id": chat_id}, {"$set": {"delay": delay}}, upsert=True)
+
+def save_group_info(chat_id, title):
+    group_col.update_one({"chat_id": chat_id}, {"$set": {"title": title}}, upsert=True)
 
 # === Message Handlers ===
 @bot.on_message(filters.group & ~filters.service)
@@ -70,6 +72,10 @@ async def leave_if_not_admin(_, message: Message):
             await bot.leave_chat(message.chat.id)
     except:
         pass
+
+@bot.on_message(filters.chat_type.groups & filters.command("start"))
+async def save_group(_, message: Message):
+    save_group_info(message.chat.id, message.chat.title)
 
 @bot.on_message((filters.private | filters.group) & filters.command("start"))
 async def start_cmd(_, message: Message):
@@ -122,9 +128,7 @@ async def status_cmd(_, message: Message):
     date_str = now.strftime("%Y-%m-%d")
     time_str = now.strftime("%I:%M:%S %p")
 
-    group_count = await bot.get_dialogs()
-    groups = sum(1 for dialog in group_count if dialog.chat.type in ["group", "supergroup"])
-
+    groups = group_col.count_documents({})
     mongo_entries = config_col.count_documents({})
     mem = psutil.Process().memory_info().rss / 1024 / 1024
     ip = socket.gethostbyname(socket.gethostname())
@@ -166,14 +170,6 @@ async def settime_cmd(_, message: Message):
         await message.reply_text(f"✅ Delete time updated to `{sec}` seconds.")
     except:
         await message.reply_text("❌ Invalid input. Use `/settime <seconds>`")
-
-@bot.on_message((filters.private | filters.group) & filters.command("testlog"))
-async def test_log(_, message: Message):
-    try:
-        await bot.send_message(LOG_GROUP_ID, "✅ Test log message from bot.")
-        await message.reply("✅ Log sent to group.")
-    except Exception as e:
-        await message.reply(f"❌ Failed: `{e}`")
 
 @bot.on_message(filters.command("cleanbot") & (filters.group | filters.private))
 async def clean_bot_messages(_, message: Message):
@@ -239,8 +235,7 @@ async def send_startup_log():
             f"🌐 **Timezone** : Asia/Kolkata\n"
             f"🛠️ **Build Status**: v2.7.1 [Stable]"
         )
-        await bot.send_message(OWNER_ID, text)  # 👈 Send to bot owner's PM
-        print("✅ Restart log sent to owner.")
+        await bot.send_message(OWNER_ID, text)
     except Exception as e:
         print(f"❌ Failed to send restart log: {e}")
 
@@ -248,7 +243,6 @@ async def send_startup_log():
 async def main():
     await bot.start()
     await send_startup_log()
-    print("✅ Bot started and startup log sent.")
     await idle()
     await bot.stop()
 
