@@ -5,3 +5,5 @@ waitress==3.0.0
 python-dotenv==1.0.1
 pytz==2024.1
 pymongo[srv]==4.7.1
+psutil
+aiohttp
