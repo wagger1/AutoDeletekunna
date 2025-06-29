@@ -23,13 +23,8 @@ if not all((API_ID, API_HASH, BOT_TOKEN, MONGO_URI)):
 
 logging.basicConfig(
     level=logging.DEBUG,
-    format="[%(asctime)s] [%(levelname)s] %(name)s: %(message)s",
-    handlers=[
-        logging.StreamHandler(sys.stdout),                     # Console output
-        logging.FileHandler("bot.log", encoding="utf-8")       # Log file
-    ]
+    format="[%(levelname)s] %(name)s: %(message)s"
 )
-
 # ── DB ─────────────────────────────────────────────────────────────────────
 mongo         = MongoClient(MONGO_URI)
 db            = mongo["autopurgebot"]
