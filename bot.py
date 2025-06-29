@@ -57,7 +57,7 @@ def run_flask():
 
 threading.Thread(target=run_flask).start()
 
-# === Bot Message Handlers ===
+# === Message Handlers ===
 @bot.on_message(filters.group & ~filters.service)
 async def auto_delete_user_messages(_, message: Message):
     if message.from_user and message.from_user.is_bot:
@@ -75,8 +75,11 @@ async def auto_delete_user_messages(_, message: Message):
         await message.delete()
     except Exception as e:
         print(f"Error deleting message: {e}")
+        try:
+            await bot.send_message(LOG_GROUP_ID, f"⚠️ Error deleting message: `{e}`")
+        except:
+            pass
 
-# === Userbot Handler for Other Bots' Messages ===
 @user.on_message(filters.group & ~filters.service)
 async def auto_delete_bot_messages(_, message: Message):
     if message.from_user and not message.from_user.is_bot:
@@ -97,10 +100,10 @@ async def delete_service(_, message: Message):
 async def start_cmd(_, message: Message):
     await message.reply_text(
         f"👋 Hello {message.from_user.mention}!\n\n"
-        "I am an Auto Delete Bot for Telegram Groups.\n"
+        f"I am an Auto Delete Bot for Telegram Groups.\n"
         f"➡️ I will delete messages after `{DELETE_TIME}` seconds.\n"
-        "➡️ Add me to your group and make me admin.\n\n"
-        "Use /help to see more commands."
+        f"➡️ Add me to your group and make me admin.\n\n"
+        f"Use /help to see more commands."
     )
 
 @bot.on_message(filters.private & filters.command("help"))
@@ -137,6 +140,7 @@ async def restart_cmd(_, message: Message):
         return await message.reply_text("⚠️ Only the bot owner can use this command.")
     msg = await message.reply_text("♻️ Restarting Bot...")
     await asyncio.sleep(1)
+    await send_startup_log()
     os.execl(sys.executable, sys.executable, *sys.argv)
 
 @bot.on_message(filters.command("cleanbot") & filters.group)
@@ -144,7 +148,7 @@ async def clean_bot_messages(_, message: Message):
     if message.from_user.id != OWNER_ID:
         return await message.reply_text("⚠️ Only the bot owner can use this command.")
     deleted = 0
-    async for msg in app.get_chat_history(message.chat.id, limit=300):
+    async for msg in bot.get_chat_history(message.chat.id, limit=300):
         if msg.from_user and msg.from_user.is_bot:
             try:
                 await msg.delete()
@@ -156,8 +160,10 @@ async def clean_bot_messages(_, message: Message):
 @bot.on_message(filters.command("settings") & filters.group)
 async def settings_panel(_, message: Message):
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("➕ +5s", callback_data="inc"),
-         InlineKeyboardButton("➖ -5s", callback_data="dec")],
+        [
+            InlineKeyboardButton("➕ +5s", callback_data="inc"),
+            InlineKeyboardButton("➖ -5s", callback_data="dec"),
+        ],
         [InlineKeyboardButton("⏱ Current", callback_data="noop")]
     ])
     await message.reply("**⚙️ AutoDelete Settings Panel**", reply_markup=keyboard)
@@ -177,7 +183,33 @@ async def callback_handler(_, cb):
     elif cb.data == "noop":
         await cb.answer(f"Current Delay: {delay}s", show_alert=True)
 
-# Run bot
-print("Bot Started...")
-bot.run()
-user.run() 
+# === Logging ===
+async def send_startup_log():
+    try:
+        ist = pytz.timezone("Asia/Kolkata")
+        now = datetime.now(ist)
+        text = (
+            "💥 **Bot Restarted**\n\n"
+            f"📅 **Date** : {now.strftime('%Y-%m-%d')}\n"
+            f"⏰ **Time** : {now.strftime('%I:%M:%S %p')}\n"
+            f"🌐 **Timezone** : Asia/Kolkata\n"
+            f"🛠️ **Build Status**: v2.7.1 [Stable]"
+        )
+        await bot.send_message(LOG_GROUP_ID, text)
+    except Exception as e:
+        print(f"❌ Failed to send restart log: {e}")
+
+# === Main ===
+async def main():
+    await bot.start()
+    await user.start()
+    print(f"🤖 Bot: @{(await bot.get_me()).username}")
+    try:
+        await bot.send_message(LOG_GROUP_ID, "✅ Log group connection verified.")
+    except Exception as e:
+        print(f"❌ Cannot access log group: {e}")
+    await send_startup_log()
+    await idle()
+
+print("🔁 Starting bot...")
+asyncio.run(main())
