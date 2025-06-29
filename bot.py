@@ -26,7 +26,6 @@ db = mongo["autopurgebot"]
 group_config = db["delays"]
 
 bot = Client("auto_purge_worker", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
-
 warned_users = {}
 
 def get_group_config(chat_id):
@@ -54,8 +53,8 @@ async def auto_purge(client: Client, message: Message):
     is_whitelisted_user = any(u in text for u in cfg["whitelist_usernames"])
     is_whitelisted_domain = any(d in text for d in cfg["whitelist_domains"])
 
-    has_link = bool(re.search(r"(http[s]?://|t\\.me/|telegram\\.me/)", text))
-    has_mention = bool(re.search(r"@\\w{3,}", text))
+    has_link = bool(re.search(r"(https?://|t\.me/|telegram\.me/)", text))
+    has_mention = bool(re.search(r"@\w{3,}", text))
 
     if (
         (cfg["block_links"] and has_link and not is_whitelisted_domain) or
@@ -186,6 +185,7 @@ async def whitelist_domain(client, message: Message):
     group_config.update_one({"chat_id": message.chat.id}, {"$addToSet": {"whitelist_domains": domain}}, upsert=True)
     await message.reply(f"✅ Domain **{domain}** whitelisted from link blocking.", quote=True)
 
+# Flask admin panel
 app = Flask(__name__)
 
 @app.route('/')
@@ -200,6 +200,7 @@ def admin_panel():
     html = "<h2>Group Settings</h2>" + "<br>".join(f"<pre>{g}</pre>" for g in data)
     return html
 
-threading.Thread(target=lambda: app.run(host="0.0.0.0", port=8000)).start()
+port = int(os.getenv("PORT", 8000))
+threading.Thread(target=lambda: app.run(host="0.0.0.0", port=port)).start()
 
 bot.run()
