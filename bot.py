@@ -11,7 +11,7 @@ import threading
 from waitress import serve
 from pymongo import MongoClient
 
-ENV Variables
+#ENV Variables
 
 API_ID = int(os.environ.get("API_ID", 0))
 API_HASH = os.environ.get("API_HASH", "")
@@ -21,32 +21,32 @@ OWNER_ID = int(os.environ.get("OWNER_ID", 0))
 LOG_GROUP_ID = int(os.environ.get("LOG_GROUP_ID", "-1002641300148"))  # Make sure it's an integer
 MONGO_URI = os.environ.get("MONGO_URI", "")
 
-Uptime tracking
+#Uptime tracking
 
 START_TIME = time.time()
 
-MongoDB setup
+#MongoDB setup
 
 mongo_client = MongoClient(MONGO_URI)
 db = mongo_client["autodelete"]
 config_col = db["configs"]
 
-Pyrogram Client
+#Pyrogram Client
 
 app = Client("autodeletebot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
-Helper: Get per-group delete time
+#Helper: Get per-group delete time
 
 def get_group_delay(chat_id):
 doc = config_col.find_one({"chat_id": chat_id})
 return doc["delay"] if doc else DELETE_TIME
 
-Helper: Update per-group delay
+#Helper: Update per-group delay
 
 def set_group_delay(chat_id, delay):
 config_col.update_one({"chat_id": chat_id}, {"$set": {"delay": delay}}, upsert=True)
 
-Auto-delete normal messages
+#Auto-delete normal messages
 
 @app.on_message(filters.group & ~filters.service)
 async def auto_delete(_, message: Message):
@@ -59,7 +59,7 @@ print(f"Error deleting message: {e}")
 if LOG_GROUP_ID:
 await app.send_message(LOG_GROUP_ID, f"⚠️ Error deleting message:\n{e}")
 
-Delete service messages (join/leave)
+#Delete service messages (join/leave)
 
 @app.on_message(filters.group & filters.service)
 async def delete_service(_, message: Message):
@@ -68,7 +68,7 @@ await message.delete()
 except:
 pass
 
-Auto-leave if not admin
+#Auto-leave if not admin
 
 @app.on_message(filters.new_chat_members)
 async def leave_if_not_admin(_, message: Message):
@@ -80,7 +80,7 @@ await app.leave_chat(message.chat.id)
 except:
 pass
 
-/start
+#/start
 
 @app.on_message(filters.private & filters.command("start"))
 async def start_cmd(_, message: Message):
@@ -92,7 +92,7 @@ f"➡️ I will delete messages after {DELETE_TIME} seconds.\n"
 "Use /help to see more commands."
 )
 
-/help
+#/help
 
 @app.on_message(filters.private & filters.command("help"))
 async def help_cmd(_, message: Message):
@@ -111,7 +111,7 @@ f"➡️ I will delete group messages after {DELETE_TIME} seconds.\n\n"
 "/settings - Inline panel for delay settings"
 )
 
-/ping
+#/ping
 
 @app.on_message(filters.private & filters.command("ping"))
 async def ping_cmd(_, message: Message):
@@ -127,7 +127,7 @@ ping_time = (end - start) * 1000
 
 await m.edit_text(f"🏓 Pong: `{int(ping_time)}ms`\n⏱ Uptime: `{uptime_str}`")
 
-/restart
+#/restart
 
 @app.on_message(filters.private & filters.command("restart"))
 async def restart_cmd(_, message: Message):
@@ -139,7 +139,7 @@ await asyncio.sleep(1)
 await send_startup_log()  
 os.execl(sys.executable, sys.executable, *sys.argv)
 
-/settime
+#/settime
 
 @app.on_message(filters.private & filters.command("settime"))
 async def settime_cmd(_, message: Message):
@@ -156,7 +156,7 @@ await message.reply_text(f"✅ Delete time updated to {sec} seconds.")
 except:
 await message.reply_text("❌ Invalid input. Use /settime <seconds>")
 
-/cleanbot
+#/cleanbot
 
 @app.on_message(filters.command("cleanbot") & filters.group)
 async def clean_bot_messages(_, message: Message):
@@ -173,7 +173,7 @@ async for msg in app.get_chat_history(message.chat.id, limit=300):
             continue  
 await message.reply_text(f"🧹 Deleted `{deleted}` bot messages.")
 
-/settings panel
+#/settings panel
 
 @app.on_message(filters.command("settings") & filters.group)
 async def settings_panel(_, message: Message):
@@ -211,7 +211,7 @@ await cb.answer(f"New Delay: {delay}s", show_alert=True)
 elif cb.data == "noop":
 await cb.answer(f"Current Delay: {delay}s", show_alert=True)
 
-Flask for Koyeb
+#Flask for Koyeb
 
 app_flask = Flask(name)
 
@@ -222,7 +222,7 @@ return "✅ Bot is healthy and running!"
 def run_flask():
 serve(app_flask, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
 
-Run Flask in background using Waitress
+#Run Flask in background using Waitress
 
 threading.Thread(target=run_flask).start()
 
@@ -235,7 +235,7 @@ print("✅ Bot can access log group.")
 except Exception as e:
 print(f"⚠️ Bot cannot access LOG_GROUP_ID ({LOG_GROUP_ID}): {e}")
 
-Send restart/startup log to log group
+#Send restart/startup log to log group
 
 async def send_startup_log():
 try:
