@@ -189,20 +189,20 @@ def run_flask(): serve(app_flask, host="0.0.0.0", port=PORT)
 threading.Thread(target=run_flask).start()
 
 async def main():
-    await User.start()
+    await user.start()
     print("[✅] User Started")
 
-    await Bot.start()
+    await bot.start()
 
     await send_startup_log()
     print("[✅] Bot Started")
     print(f"🤖 Bot: @{(await bot.get_me()).username}")
     await idle()
 
-    await User.stop()
+    await user.stop()
     print("[⚠️] User Stopped")
 
-    await Bot.stop()
+    await bot.stop()
     print("[⚠️] Bot Stopped")
 
 if __name__ == "__main__":
