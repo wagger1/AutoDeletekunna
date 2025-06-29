@@ -127,6 +127,14 @@ async def settime_cmd(_, message: Message):
     except:
         await message.reply_text("❌ Invalid input. Use `/settime <seconds>`")
 
+@bot.on_message(filters.private & filters.command("testlog"))
+async def test_log(_, message: Message):
+try:
+await app.send_message(LOG_GROUP_ID, "✅ Test log message from bot.")
+await message.reply("✅ Log sent to group.")
+except Exception as e:
+await message.reply(f"❌ Failed: {e}")
+
 @bot.on_message(filters.command("cleanbot") & filters.group)
 async def clean_bot_messages(_, message: Message):
     if message.from_user.id != OWNER_ID:
@@ -168,14 +176,14 @@ async def callback_handler(_, cb):
         await cb.answer(f"Current Delay: {delay}s", show_alert=True)
 
 # === Flask for Koyeb ===
-app_flask = Flask(__name__)
+app_flask = Flask(name)
 
 @app_flask.route('/')
 def index():
-    return "✅ Bot is healthy and running!"
+return "✅ Bot is healthy and running!"
 
 def run_flask():
-    serve(app_flask, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
+serve(app_flask, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
 
 threading.Thread(target=run_flask).start()
 
