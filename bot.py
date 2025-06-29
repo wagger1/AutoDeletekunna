@@ -7,6 +7,7 @@ from pyrogram import Client, filters, idle
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from flask import Flask
 import threading
+from waitress import serve
 
 # ENV Variables
 API_ID = int(os.environ.get("API_ID", 0))
@@ -181,17 +182,16 @@ async def callback_handler(_, cb):
         await cb.answer(f"Current Delay: {DELETE_TIME}s", show_alert=True)
 
 # Flask for Koyeb
-flask_app = Flask(__name__)
+app_flask = Flask(__name__)
 
-@flask_app.route('/')
-def home():
-    return "✅ Bot is healthy!"
+@app_flask.route('/')
+def index():
+    return "✅ Bot is healthy and running!"
 
 def run_flask():
-    port = int(os.getenv("PORT", 8000))
-    flask_app.run(host="0.0.0.0", port=port)
+    serve(app_flask, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
 
-# Start Flask
+# Run Flask in background using Waitress (no dev server warning)
 threading.Thread(target=run_flask).start()
 
 # Run bot
