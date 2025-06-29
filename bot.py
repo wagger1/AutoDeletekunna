@@ -16,33 +16,7 @@ import platform
 import psutil
 import socket
 from pyrogram.types import ChatMemberUpdated
-
-@bot.on_chat_member_updated()
-async def log_new_group(_, update: ChatMemberUpdated):
-    if update.new_chat_member and update.new_chat_member.user.is_self:
-        if update.old_chat_member.status in ("left", "kicked") and update.new_chat_member.status in ("member", "administrator"):
-            try:
-                user = update.from_user
-                chat = update.chat
-                ist = pytz.timezone("Asia/Kolkata")
-                now = datetime.now(ist)
-                date_str = now.strftime("%Y-%m-%d")
-                time_str = now.strftime("%I:%M:%S %p")
-
-                invite_link = f"https://t.me/{chat.username}" if chat.username else f"Private Group ({chat.id})"
-
-                text = (
-                    "📥 **Bot Added to New Group**\n\n"
-                    f"👤 Added By: `{user.first_name}` (`{user.id}`)\n"
-                    f"👥 Group   : {chat.title}\n"
-                    f"🔗 Link    : {invite_link}\n\n"
-                    f"📅 Date    : {date_str}\n"
-                    f"⏰ Time    : {time_str}"
-                )
-                await bot.send_message(LOG_GROUP_ID, text)
-            except Exception as e:
-                print(f"❌ Error sending log: {e}")
-                
+               
 # === ENV Variables ===
 API_ID = int(os.environ.get("API_ID", 0))
 API_HASH = os.environ.get("API_HASH", "")
@@ -65,6 +39,34 @@ whitelist_col = db["whitelist"]
 
 # === Pyrogram Client ===
 bot = Client("autodeletebot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+
+# Then this comes after
+
+@bot.on_chat_member_updated()
+async def log_new_group(_, update: ChatMemberUpdated):
+    if update.new_chat_member and update.new_chat_member.user.is_self:
+        if update.old_chat_member.status in ("left", "kicked") and update.new_chat_member.status in ("member", "administrator"):
+            try:
+                user = update.from_user
+                chat = update.chat
+                ist = pytz.timezone("Asia/Kolkata")
+                now = datetime.now(ist)
+                date_str = now.strftime("%Y-%m-%d")
+                time_str = now.strftime("%I:%M:%S %p")
+
+                invite_link = f"https://t.me/{chat.username}" if chat.username else f"Private Group (`{chat.id}`)"
+
+                text = (
+                    "📥 **Bot Added to New Group**\n\n"
+                    f"👤 Added By : `{user.first_name}` (`{user.id}`)\n"
+                    f"👥 Group    : {chat.title}\n"
+                    f"🔗 Link     : {invite_link}\n\n"
+                    f"📅 Date     : {date_str}\n"
+                    f"⏰ Time     : {time_str}"
+                )
+                await bot.send_message(LOG_GROUP_ID, text)
+            except Exception as e:
+                print(f"❌ Error sending log: {e}")
 
 # === Helper Functions ===
 def get_group_delay(chat_id):
