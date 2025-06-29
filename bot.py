@@ -6,7 +6,6 @@ from pyrogram import Client, filters
 from pyrogram.types import Message
 from pymongo import MongoClient
 
-# ── ENVIRONMENT ─────────────────────────────
 API_ID        = int(os.getenv("API_ID", "0"))
 API_HASH      = os.getenv("API_HASH", "")
 BOT_TOKEN     = os.getenv("BOT_TOKEN", "")
@@ -17,18 +16,14 @@ LOG_CHAT_ID   = int(os.getenv("LOG_CHAT_ID", "0"))
 if not all((API_ID, API_HASH, BOT_TOKEN, MONGO_URI)):
     raise RuntimeError("Missing required environment variables.")
 
-# ── LOGGER ──────────────────────────────────
 logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(name)s: %(message)s")
 
-# ── DATABASE ────────────────────────────────
 mongo = MongoClient(MONGO_URI)
 db = mongo["autopurgebot"]
 group_config = db["delays"]
 
-# ── BOT INIT ────────────────────────────────
 bot = Client("auto_purge_worker", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
-# ── CONFIG HELPER ───────────────────────────
 def get_group_config(chat_id):
     config = group_config.find_one({"chat_id": chat_id}) or {}
     return {
@@ -39,7 +34,6 @@ def get_group_config(chat_id):
         "whitelist_domains": config.get("whitelist_domains", [])
     }
 
-# ── WARN-ONCE SYSTEM ────────────────────────
 warned_users = {}
 
 async def warn_once(client, message: Message):
@@ -49,7 +43,6 @@ async def warn_once(client, message: Message):
     warned_users[key] = True
     await message.reply("⚠️ Links or @mentions are not allowed in this group.")
 
-# ── AUTO DELETE HANDLER ─────────────────────
 @bot.on_message(filters.group & ~filters.service)
 async def auto_purge(client: Client, message: Message):
     cfg = get_group_config(message.chat.id)
@@ -91,7 +84,8 @@ async def auto_purge(client: Client, message: Message):
     except Exception as e:
         logging.warning(f"Failed to delete after delay: {e}")
 
-# ── ADMIN COMMANDS ──────────────────────────
+# ─── Admin Commands ─────────────────────────
+
 @bot.on_message(filters.command("setdelay") & filters.group)
 async def set_delay(client: Client, message: Message):
     if not message.from_user or not message.from_user.is_chat_admin:
@@ -176,7 +170,36 @@ async def status(client: Client, message: Message):
         f"🕒 Default delay: {DEFAULT_PURGE_SECONDS} sec"
     )
 
-# ── BOT START ───────────────────────────────
-if __name__ == "__main__":
-    logging.info("Bot is starting...")
-    bot.run()
+@bot.on_message(filters.command("start") & filters.private)
+async def start_command(client: Client, message: Message):
+    await message.reply(
+        "**👋 Welcome to AutoDelete Bot!**\n\n"
+        "I'm here to help you auto-delete messages from your groups.\n"
+        "Add me to your group and promote me to admin.\n\n"
+        "Use /help to see available commands and features."
+    )
+
+@bot.on_message(filters.command("help"))
+async def help_command(client: Client, message: Message):
+    await message.reply(
+        "**🛠 AutoDelete Bot Help Menu**\n\n"
+        "**Main Features:**\n"
+        "• 🧹 Automatically deletes group messages after a delay\n"
+        "• 🔗 Deletes messages containing links\n"
+        "• 👤 Deletes messages with @usernames\n"
+        "• ⚙️ Fully configurable per group\n\n"
+        "**Admin Commands (group only):**\n"
+        "`/setdelay <seconds>` – Set auto-delete delay\n"
+        "`/getdelay` – Show current delay\n"
+        "`/blocklinks on/off` – Enable or disable link blocking\n"
+        "`/blockmentions on/off` – Enable or disable @username blocking\n"
+        "`/whitelistuser @username` – Allow specific usernames\n"
+        "`/whitelistdomain domain.com` – Allow specific domains\n"
+        "`/settings` – View current settings\n\n"
+        "**Private Commands:**\n"
+        "`/start` – Welcome message\n"
+        "`/status` – Check bot status\n\n"
+        "__Add me to your group and make me admin to get started!__"
+    )
+
+bot.run()
