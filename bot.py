@@ -191,4 +191,5 @@ threading.Thread(target=run_flask).start()
 # Run bot
 print("Bot Started...")
 print("User Started...")
-app.run()
+bot.run()
+user.run()
