@@ -1,16 +1,24 @@
-# Telegram Auto-Delete Bot
+# Telegram Auto-Delete Bot 🧹
 
-A lightweight Telegram bot that auto-deletes messages from groups after a configurable delay.
+A Telegram group management bot that automatically deletes all messages after a delay — with optional filtering for links and @usernames.
 
-## 🚀 Features
-- Per-group purge delay with `/setdelay`
-- MongoDB persistence
-- `/getdelay` to view current delay
-- `/status` for private diagnostics
-- Optional logging of deleted messages to a log group
+---
 
-## 🛠 Setup
+## ✅ Features
 
-### 🧪 Install Requirements
+- ⏱ Per-group custom delete delay
+- 🔗 Delete links (`http`, `t.me`, etc.)
+- 👤 Delete @mentions
+- ⚙️ Toggle filters with commands
+- 🔒 Admin-only controls
+- 💾 Persistent settings via MongoDB
+- 🧾 Logging deleted messages (optional)
+
+---
+
+## 📦 Setup
+
+### 1. Install Dependencies
+
 ```bash
 pip install -r requirements.txt
