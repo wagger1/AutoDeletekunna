@@ -30,8 +30,8 @@ db = mongo_client["autodelete"]
 config_col = db["configs"]
 
 # Pyrogram Clients
-bot = Client("autodeletebot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
-user = Client("userbot", api_id=API_ID, api_hash=API_HASH, session_string=USER_SESSION)
+bot = Client("autodelete_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+user = Client("autodelete_user", api_id=API_ID, api_hash=API_HASH, session_string=USER_SESSION)
 
 # Helper: Get per-group delete time
 def get_group_delay(chat_id):
@@ -42,61 +42,47 @@ def get_group_delay(chat_id):
 def set_group_delay(chat_id, delay):
     config_col.update_one({"chat_id": chat_id}, {"$set": {"delay": delay}}, upsert=True)
 
-# Helper: Check if message has links or mentions
-def contains_link_or_mention(msg: Message):
-    if msg.entities:
-        for e in msg.entities:
-            if e.type in ("url", "text_link", "mention"):
-                return True
-    return False
-
-# Delete user messages with bot
+# Message delete handlers
 @bot.on_message(filters.group & ~filters.service)
-async def delete_user_messages(_, message: Message):
+async def handle_bot_deletes(_, message: Message):
     if message.from_user and not message.from_user.is_bot:
         delay = get_group_delay(message.chat.id)
         try:
-            if contains_link_or_mention(message):
-                await message.delete()
-                return
             await asyncio.sleep(delay)
             await message.delete()
         except Exception as e:
-            print(f"Error deleting user msg: {e}")
-            await bot.send_message(LOG_GROUP_ID, f"❗ Failed to delete user msg: `{e}`")
+            print(f"Error deleting user message: {e}")
+            await safe_log(f"⚠️ Error deleting user message:\n`{e}`")
 
-# Delete bot messages with user session
 @user.on_message(filters.group & ~filters.service)
-async def delete_bot_messages(_, message: Message):
+async def handle_user_deletes(_, message: Message):
     if message.from_user and message.from_user.is_bot:
         delay = get_group_delay(message.chat.id)
         try:
             await asyncio.sleep(delay)
             await message.delete()
         except Exception as e:
-            print(f"Error deleting bot msg: {e}")
-            await bot.send_message(LOG_GROUP_ID, f"❗ Failed to delete bot msg: `{e}`")
+            print(f"Error deleting bot message: {e}")
+            await safe_log(f"⚠️ Error deleting bot message:\n`{e}`")
 
-# Delete service messages
 @bot.on_message(filters.group & filters.service)
-async def delete_service_messages(_, message: Message):
+async def delete_service(_, message: Message):
     try:
         await message.delete()
     except:
         pass
 
-# Auto-leave if not admin
 @bot.on_message(filters.new_chat_members)
-async def auto_leave(_, message: Message):
+async def leave_if_not_admin(_, message: Message):
     try:
-        me = await bot.get_chat_member(message.chat.id, "me")
-        if me.status not in ("administrator", "creator"):
-            await message.reply_text("I'm not an admin. Leaving...")
+        member = await bot.get_chat_member(message.chat.id, "me")
+        if member.status not in ("administrator", "creator"):
+            await message.reply_text("I am not an admin. Leaving...")
             await bot.leave_chat(message.chat.id)
     except:
         pass
 
-# Command handlers
+# Commands
 @bot.on_message(filters.private & filters.command("start"))
 async def start_cmd(_, message: Message):
     await message.reply_text(
@@ -127,20 +113,24 @@ async def help_cmd(_, message: Message):
 @bot.on_message(filters.private & filters.command("ping"))
 async def ping_cmd(_, message: Message):
     uptime = time.time() - START_TIME
-    h, rem = divmod(int(uptime), 3600)
-    m, s = divmod(rem, 60)
-    uptime_str = f"{h}h {m}m {s}s"
+    hours, rem = divmod(int(uptime), 3600)
+    minutes, seconds = divmod(rem, 60)
+    uptime_str = f"{hours}h {minutes}m {seconds}s"
 
     start = time.time()
     m = await message.reply_text("Pinging...")
-    ping = int((time.time() - start) * 1000)
-    await m.edit_text(f"🏓 Pong: `{ping}ms`\n⏱ Uptime: `{uptime_str}`")
+    end = time.time()
+    ping_time = (end - start) * 1000
+
+    await m.edit_text(f"🏓 Pong: `{int(ping_time)}ms`\n⏱ Uptime: `{uptime_str}`")
 
 @bot.on_message(filters.private & filters.command("restart"))
 async def restart_cmd(_, message: Message):
     if message.from_user.id != OWNER_ID:
         return await message.reply_text("⚠️ Only the bot owner can use this command.")
-    await message.reply_text("♻️ Restarting bot...")
+
+    msg = await message.reply_text("♻️ Restarting Bot...")
+    await asyncio.sleep(1)
     await send_startup_log()
     os.execl(sys.executable, sys.executable, *sys.argv)
 
@@ -157,7 +147,22 @@ async def settime_cmd(_, message: Message):
         set_group_delay(message.chat.id, sec)
         await message.reply_text(f"✅ Delete time updated to `{sec}` seconds.")
     except:
-        await message.reply_text("❌ Invalid input.")
+        await message.reply_text("❌ Invalid input. Use `/settime <seconds>`")
+
+@bot.on_message(filters.command("cleanbot") & filters.group)
+async def clean_bot_messages(_, message: Message):
+    if message.from_user.id != OWNER_ID:
+        return await message.reply_text("⚠️ Only the bot owner can use this command.")
+
+    deleted = 0
+    async for msg in bot.get_chat_history(message.chat.id, limit=300):
+        if msg.from_user and msg.from_user.is_bot:
+            try:
+                await msg.delete()
+                deleted += 1
+            except:
+                continue
+    await message.reply_text(f"🧹 Deleted `{deleted}` bot messages.")
 
 @bot.on_message(filters.command("settings") & filters.group)
 async def settings_panel(_, message: Message):
@@ -166,7 +171,9 @@ async def settings_panel(_, message: Message):
             InlineKeyboardButton("➕ +5s", callback_data="inc"),
             InlineKeyboardButton("➖ -5s", callback_data="dec"),
         ],
-        [InlineKeyboardButton("⏱ Current", callback_data="noop")]
+        [
+            InlineKeyboardButton("⏱ Current", callback_data="noop")
+        ]
     ])
     await message.reply("**⚙️ AutoDelete Settings Panel**", reply_markup=keyboard)
 
@@ -185,7 +192,13 @@ async def callback_handler(_, cb):
     elif cb.data == "noop":
         await cb.answer(f"Current Delay: {delay}s", show_alert=True)
 
-# Flask for Koyeb health check
+async def safe_log(text):
+    try:
+        await bot.send_message(LOG_GROUP_ID, text)
+    except Exception as e:
+        print(f"❌ Failed to log: {e}")
+
+# Flask for Koyeb
 app_flask = Flask(__name__)
 
 @app_flask.route('/')
@@ -209,13 +222,20 @@ async def send_startup_log():
             f"🛠️ **Build Status**: v2.7.1 [Stable]"
         )
         await bot.send_message(LOG_GROUP_ID, text)
+        print("✅ Restart log sent.")
     except Exception as e:
-        print(f"❌ Failed to send log: {e}")
+        print(f"❌ Failed to send restart log: {e}")
 
 async def main():
     await bot.start()
     await user.start()
     print(f"🤖 Bot: @{(await bot.get_me()).username}")
+    try:
+        await bot.get_chat(LOG_GROUP_ID)
+        await user.get_chat(LOG_GROUP_ID)
+        print("✅ Both bot and userbot can access log group.")
+    except Exception as e:
+        print(f"❌ Cannot access log group: {e}")
     await send_startup_log()
     await idle()
 
