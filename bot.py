@@ -261,12 +261,10 @@ async def send_startup_log():
         print(f"❌ Failed to send restart log: {e}")
 
 # === Start Bot ===
-async def main():
-    await bot.start()
-    await send_startup_log()
-    print("✅ Bot started and startup log sent.")
-    await idle()
-    await bot.stop()
-
 if __name__ == "__main__":
-    asyncio.run(main())
+    port = int(os.getenv("PORT", 8000))
+    threading.Thread(
+        target=lambda: app.run(host="0.0.0.0", port=port, debug=False),
+        daemon=True,
+    ).start()
+    bot.run()
