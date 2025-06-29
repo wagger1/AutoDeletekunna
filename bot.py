@@ -107,6 +107,20 @@ async def settime_cmd(_, message: Message):
     except ValueError:
         await message.reply_text("⚠️ Invalid number. Usage: `/settime <seconds>`")
 
+from flask import Flask
+import threading
+
+app_flask = Flask(__name__)
+
+@app_flask.route('/')
+def index():
+    return "✅ Bot is healthy and running!"
+
+def run_flask():
+    app_flask.run(host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
+
+# Run Flask in background
+threading.Thread(target=run_flask).start()
 
 print("Bot Started...")
 app.run()
