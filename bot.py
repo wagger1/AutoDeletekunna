@@ -9,6 +9,7 @@ from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from flask import Flask
 import threading
 from waitress import serve
+from pymongo import MongoClient
 
 # ENV Variables
 API_ID = int(os.environ.get("API_ID", 0))
@@ -17,18 +18,34 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 DELETE_TIME = int(os.environ.get("DELETE_TIME", 60))
 OWNER_ID = int(os.environ.get("OWNER_ID", 0))
 LOG_GROUP_ID = int(os.environ.get("LOG_GROUP_ID", 0))
+MONGO_URI = os.environ.get("MONGO_URI", "")
 
 # Uptime tracking
 START_TIME = time.time()
 
+# MongoDB setup
+mongo_client = MongoClient(MONGO_URI)
+db = mongo_client["autodelete"]
+config_col = db["configs"]
+
 # Pyrogram Client
 app = Client("autodeletebot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+
+# Helper: Get per-group delete time
+def get_group_delay(chat_id):
+    doc = config_col.find_one({"chat_id": chat_id})
+    return doc["delay"] if doc else DELETE_TIME
+
+# Helper: Update per-group delay
+def set_group_delay(chat_id, delay):
+    config_col.update_one({"chat_id": chat_id}, {"$set": {"delay": delay}}, upsert=True)
 
 # Auto-delete normal messages
 @app.on_message(filters.group & ~filters.service)
 async def auto_delete(_, message: Message):
+    delay = get_group_delay(message.chat.id)
     try:
-        await asyncio.sleep(DELETE_TIME)
+        await asyncio.sleep(delay)
         await message.delete()
     except Exception as e:
         print(f"Error deleting message: {e}")
@@ -105,28 +122,13 @@ async def restart_cmd(_, message: Message):
         return await message.reply_text("⚠️ Only the bot owner can use this command.")
 
     msg = await message.reply_text("♻️ Restarting Bot...")
-
     await asyncio.sleep(1)
-
-    # Send restart log
-    if LOG_GROUP_ID:
-        ist = pytz.timezone("Asia/Kolkata")
-        now = datetime.now(ist)
-        log_text = (
-            "💥 **Bᴏᴛ Rᴇsᴛᴀʀᴛᴇᴅ**\n\n"
-            f"📅 **Dᴀᴛᴇ** : {now.strftime('%Y-%m-%d')}\n"
-            f"⏰ **Tɪᴍᴇ** : {now.strftime('%I:%M:%S %p')}\n"
-            f"🌐 **Tɪᴍᴇᴢᴏɴᴇ** : Asia/Kolkata\n"
-            f"🛠️ **Bᴜɪʟᴅ Sᴛᴀᴛᴜs**: v2.7.1 [Stable]"
-        )
-        await app.send_message(LOG_GROUP_ID, log_text)
-
+    await send_startup_log()
     os.execl(sys.executable, sys.executable, *sys.argv)
 
 # /settime
 @app.on_message(filters.private & filters.command("settime"))
 async def settime_cmd(_, message: Message):
-    global DELETE_TIME
     if message.from_user.id != OWNER_ID:
         return await message.reply_text("⚠️ Only the bot owner can use this command.")
     if len(message.command) < 2:
@@ -135,8 +137,8 @@ async def settime_cmd(_, message: Message):
         sec = int(message.command[1])
         if sec < 5:
             return await message.reply_text("⚠️ Minimum delete time is 5 seconds.")
-        DELETE_TIME = sec
-        await message.reply_text(f"✅ Delete time updated to `{DELETE_TIME}` seconds.")
+        set_group_delay(message.chat.id, sec)
+        await message.reply_text(f"✅ Delete time updated to `{sec}` seconds.")
     except:
         await message.reply_text("❌ Invalid input. Use `/settime <seconds>`")
 
@@ -172,15 +174,18 @@ async def settings_panel(_, message: Message):
 
 @app.on_callback_query()
 async def callback_handler(_, cb):
-    global DELETE_TIME
+    chat_id = cb.message.chat.id
+    delay = get_group_delay(chat_id)
     if cb.data == "inc":
-        DELETE_TIME += 5
-        await cb.answer(f"New Delay: {DELETE_TIME}s", show_alert=True)
+        delay += 5
+        set_group_delay(chat_id, delay)
+        await cb.answer(f"New Delay: {delay}s", show_alert=True)
     elif cb.data == "dec":
-        DELETE_TIME = max(5, DELETE_TIME - 5)
-        await cb.answer(f"New Delay: {DELETE_TIME}s", show_alert=True)
+        delay = max(5, delay - 5)
+        set_group_delay(chat_id, delay)
+        await cb.answer(f"New Delay: {delay}s", show_alert=True)
     elif cb.data == "noop":
-        await cb.answer(f"Current Delay: {DELETE_TIME}s", show_alert=True)
+        await cb.answer(f"Current Delay: {delay}s", show_alert=True)
 
 # Flask for Koyeb
 app_flask = Flask(__name__)
@@ -192,19 +197,19 @@ def index():
 def run_flask():
     serve(app_flask, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
 
-# Run Flask in background using Waitress (no dev server warning)
+# Run Flask in background using Waitress
 threading.Thread(target=run_flask).start()
 
 # Send startup log when redeployed
 async def send_startup_log():
     try:
-        await app.get_chat(LOG_GROUP_ID)  # Bootstrap the peer
+        await app.get_chat(LOG_GROUP_ID)
         ist = pytz.timezone("Asia/Kolkata")
         now = datetime.now(ist)
         text = (
             "💥 **Bot Restarted**\n\n"
             f"📅 **Date** : {now.strftime('%Y-%m-%d')}\n"
-            f"⏰ **Time** : {now.strftime('%H:%M:%S %p')}\n"
+            f"⏰ **Time** : {now.strftime('%I:%M:%S %p')}\n"
             f"🌐 **Timezone** : Asia/Kolkata\n"
             f"🛠️ **Build Status**: v2.7.1 [Stable]"
         )
@@ -213,7 +218,7 @@ async def send_startup_log():
     except Exception as e:
         print(f"❌ Failed to send restart log: {e}")
 
-# Run bot with startup log
+# Run bot
 print("Bot Started...")
 
 async def main():
