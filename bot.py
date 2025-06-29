@@ -17,7 +17,7 @@ API_HASH = os.environ.get("API_HASH", "")
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 DELETE_TIME = int(os.environ.get("DELETE_TIME", 60))
 OWNER_ID = int(os.environ.get("OWNER_ID", 0))
-LOG_GROUP_ID = int(os.environ.get("LOG_GROUP_ID", 0))
+LOG_GROUP_ID = int(os.environ.get("LOG_GROUP_ID", "-1001234567890"))  # Make sure it's an integer
 MONGO_URI = os.environ.get("MONGO_URI", "")
 
 # Uptime tracking
@@ -172,6 +172,14 @@ async def settings_panel(_, message: Message):
     ])
     await message.reply("**⚙️ AutoDelete Settings Panel**", reply_markup=keyboard)
 
+@app.on_message(filters.private & filters.command("testlog"))
+async def test_log(_, message: Message):
+    try:
+        await app.send_message(LOG_GROUP_ID, "✅ Test log message from bot.")
+        await message.reply("✅ Log sent to group.")
+    except Exception as e:
+        await message.reply(f"❌ Failed: `{e}`")
+        
 @app.on_callback_query()
 async def callback_handler(_, cb):
     chat_id = cb.message.chat.id
@@ -200,10 +208,17 @@ def run_flask():
 # Run Flask in background using Waitress
 threading.Thread(target=run_flask).start()
 
-# Send startup log when redeployed
-async def send_startup_log():
+# Utility to verify log group access (fix PeerIdInvalid)
+async def ensure_log_group_joined():
     try:
         await app.get_chat(LOG_GROUP_ID)
+        print("✅ Bot can access log group.")
+    except Exception as e:
+        print(f"⚠️ Bot cannot access LOG_GROUP_ID ({LOG_GROUP_ID}): {e}")
+
+# Send restart/startup log to log group
+async def send_startup_log():
+    try:
         ist = pytz.timezone("Asia/Kolkata")
         now = datetime.now(ist)
         text = (
@@ -218,12 +233,20 @@ async def send_startup_log():
     except Exception as e:
         print(f"❌ Failed to send restart log: {e}")
 
-# Run bot
+# Bot startup
 print("Bot Started...")
 
 async def main():
     await app.start()
+    print(f"🤖 Logged in as @{(await app.get_me()).username}")
+    
+    # 🔐 Ensure bot can access log group
+    await ensure_log_group_joined()
+    
+    # 📝 Try sending the restart log
     await send_startup_log()
+    
+    # 🔁 Run idle loop
     await idle()
 
 asyncio.run(main())
