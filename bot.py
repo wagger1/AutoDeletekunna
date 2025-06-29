@@ -233,20 +233,6 @@ async def send_startup_log():
     except Exception as e:
         print(f"❌ Failed to send restart log: {e}")
 
-# Bot startup
+# Run bot
 print("Bot Started...")
-
-async def main():
-    await app.start()
-    print(f"🤖 Logged in as @{(await app.get_me()).username}")
-    
-    # 🔐 Ensure bot can access log group
-    await ensure_log_group_joined()
-    
-    # 📝 Try sending the restart log
-    await send_startup_log()
-    
-    # 🔁 Run idle loop
-    await idle()
-
-asyncio.run(main())
+app.run()
