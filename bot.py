@@ -1,21 +1,28 @@
 import os
 import asyncio
 import time
-import threading
+import pytz
+from datetime import datetime
+from pyrogram import Client, filters, idle
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from flask import Flask
-from pyrogram import Client, filters
-from pyrogram.types import Message, ChatMemberUpdated
+import threading
 
+# ENV Variables
 API_ID = int(os.environ.get("API_ID", 0))
 API_HASH = os.environ.get("API_HASH", "")
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
-DELETE_TIME = int(os.environ.get("DELETE_TIME", 60))  # default seconds
-OWNER_ID = int(os.environ.get("OWNER_ID", 0))  # Your Telegram User ID
-LOG_GROUP_ID = int(os.environ.get("LOG_GROUP_ID", 0))  # Must be numeric
+DELETE_TIME = int(os.environ.get("DELETE_TIME", 60))
+OWNER_ID = int(os.environ.get("OWNER_ID", 0))
+LOG_GROUP_ID = int(os.environ.get("LOG_GROUP_ID", 0))
 
+# Uptime tracking
+START_TIME = time.time()
+
+# Pyrogram Client
 app = Client("autodeletebot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
-# ================= AUTO DELETE HANDLER ======================
+# Auto-delete normal messages
 @app.on_message(filters.group & ~filters.service)
 async def auto_delete(_, message: Message):
     try:
@@ -26,28 +33,26 @@ async def auto_delete(_, message: Message):
         if LOG_GROUP_ID:
             await app.send_message(LOG_GROUP_ID, f"⚠️ Error deleting message:\n`{e}`")
 
-# ================= DELETE SERVICE MESSAGES ==================
-@app.on_message(filters.service & filters.group)
+# Delete service messages (join/leave)
+@app.on_message(filters.group & filters.service)
 async def delete_service(_, message: Message):
     try:
         await message.delete()
-    except Exception:
+    except:
         pass
 
-# ================= AUTO-LEAVE IF NOT ADMIN ==================
-@app.on_chat_member_updated()
-async def handle_member_update(_, update: ChatMemberUpdated):
-    if update.new_chat_member.user.id == (await app.get_me()).id:
-        try:
-            member = await app.get_chat_member(update.chat.id, update.new_chat_member.user.id)
-            if not member.privileges or not member.privileges.can_delete_messages:
-                await app.leave_chat(update.chat.id)
-                if LOG_GROUP_ID:
-                    await app.send_message(LOG_GROUP_ID, f"🚪 Left group {update.chat.title} (ID: {update.chat.id}) — no delete permission.")
-        except:
-            pass
+# Auto-leave if not admin
+@app.on_message(filters.new_chat_members)
+async def leave_if_not_admin(_, message: Message):
+    try:
+        member = await app.get_chat_member(message.chat.id, "me")
+        if not member.status in ("administrator", "creator"):
+            await message.reply_text("I am not an admin. Leaving...")
+            await app.leave_chat(message.chat.id)
+    except:
+        pass
 
-# ================= COMMANDS ================================
+# /start
 @app.on_message(filters.private & filters.command("start"))
 async def start_cmd(_, message: Message):
     await message.reply_text(
@@ -58,6 +63,7 @@ async def start_cmd(_, message: Message):
         "Use /help to see more commands."
     )
 
+# /help
 @app.on_message(filters.private & filters.command("help"))
 async def help_cmd(_, message: Message):
     await message.reply_text(
@@ -68,61 +74,71 @@ async def help_cmd(_, message: Message):
         "**Available Commands:**\n"
         "`/start` - Show welcome message\n"
         "`/help` - Show this help message\n"
-        "`/ping` - Check bot status\n"
+        "`/ping` - Check bot status and uptime\n"
         "`/restart` - Restart bot (Owner only)\n"
         "`/settime <seconds>` - Change delete time (Owner only)\n"
-        "`/cleanbot` - Delete all bot messages in a group"
+        "`/cleanbot` - Delete all bot messages in a group\n"
+        "`/settings` - Inline panel for delay settings"
     )
 
+# /ping
 @app.on_message(filters.private & filters.command("ping"))
 async def ping_cmd(_, message: Message):
+    uptime = time.time() - START_TIME
+    hours, rem = divmod(int(uptime), 3600)
+    minutes, seconds = divmod(rem, 60)
+    uptime_str = f"{hours}h {minutes}m {seconds}s"
+
     start = time.time()
     m = await message.reply_text("Pinging...")
     end = time.time()
     ping_time = (end - start) * 1000
-    await m.edit_text(f"🏓 Pong! `{int(ping_time)}ms`")
 
+    await m.edit_text(f"🏓 Pong: `{int(ping_time)}ms`\n⏱ Uptime: `{uptime_str}`")
+
+# /restart
 @app.on_message(filters.private & filters.command("restart"))
 async def restart_cmd(_, message: Message):
     if message.from_user.id != OWNER_ID:
         return await message.reply_text("⚠️ Only the bot owner can use this command.")
 
-    start_time = time.time()
     msg = await message.reply_text("♻️ Restarting Bot...")
 
-    await asyncio.sleep(5)
+    await asyncio.sleep(1)
 
-    end_time = time.time()
-    taken = int(end_time - start_time)
-    text = f"✅ Bot restarted\n🕥 Time taken - {taken} seconds"
-
-    await msg.edit_text(text)
-
+    # Send restart log
     if LOG_GROUP_ID:
-        await app.send_message(LOG_GROUP_ID, f"♻️ Bot restarted by [{message.from_user.first_name}](tg://user?id={message.from_user.id}).\n{text}")
+        ist = pytz.timezone("Asia/Kolkata")
+        now = datetime.now(ist)
+        log_text = (
+            "💥 **Bᴏᴛ Rᴇsᴛᴀʀᴛᴇᴅ**\n\n"
+            f"📅 **Dᴀᴛᴇ** : {now.strftime('%Y-%m-%d')}\n"
+            f"⏰ **Tɪᴍᴇ** : {now.strftime('%H:%M:%S %p')}\n"
+            f"🌐 **Tɪᴍᴇᴢᴏɴᴇ** : Asia/Kolkata\n"
+            f"🛠️ **Bᴜɪʟᴅ Sᴛᴀᴛᴜs**: v2.7.1 [Stable]"
+        )
+        await app.send_message(LOG_GROUP_ID, log_text)
 
+    os.execl(sys.executable, sys.executable, *sys.argv)
+
+# /settime
 @app.on_message(filters.private & filters.command("settime"))
 async def settime_cmd(_, message: Message):
     global DELETE_TIME
-
     if message.from_user.id != OWNER_ID:
         return await message.reply_text("⚠️ Only the bot owner can use this command.")
-
     if len(message.command) < 2:
-        return await message.reply_text("❗ Usage: `/settime <seconds>`", quote=True)
-
+        return await message.reply_text("❗ Usage: `/settime <seconds>`")
     try:
-        new_time = int(message.command[1])
-        if new_time < 5:
+        sec = int(message.command[1])
+        if sec < 5:
             return await message.reply_text("⚠️ Minimum delete time is 5 seconds.")
-        DELETE_TIME = new_time
-        await message.reply_text(f"✅ Auto-delete time updated to `{DELETE_TIME}` seconds.")
+        DELETE_TIME = sec
+        await message.reply_text(f"✅ Delete time updated to `{DELETE_TIME}` seconds.")
+    except:
+        await message.reply_text("❌ Invalid input. Use `/settime <seconds>`")
 
-        if LOG_GROUP_ID:
-            await app.send_message(LOG_GROUP_ID, f"🛠 Auto-delete time changed to `{DELETE_TIME}` seconds by [{message.from_user.first_name}](tg://user?id={message.from_user.id}).")
-    except ValueError:
-        await message.reply_text("⚠️ Invalid number. Usage: `/settime <seconds>`")
-
+# /cleanbot
 @app.on_message(filters.command("cleanbot") & filters.group)
 async def clean_bot_messages(_, message: Message):
     if message.from_user.id != OWNER_ID:
@@ -136,24 +152,48 @@ async def clean_bot_messages(_, message: Message):
                 deleted += 1
             except:
                 continue
-
     await message.reply_text(f"🧹 Deleted `{deleted}` bot messages.")
 
-# ================= FLASK PANEL ==============================
-app_flask = Flask(__name__)
+# /settings panel
+@app.on_message(filters.command("settings") & filters.group)
+async def settings_panel(_, message: Message):
+    keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("➕ +5s", callback_data="inc"),
+            InlineKeyboardButton("➖ -5s", callback_data="dec"),
+        ],
+        [
+            InlineKeyboardButton("⏱ Current", callback_data="noop")
+        ]
+    ])
+    await message.reply("**⚙️ AutoDelete Settings Panel**", reply_markup=keyboard)
 
-@app_flask.route('/')
-def index():
-    return "✅ Bot is healthy and running!"
+@app.on_callback_query()
+async def callback_handler(_, cb):
+    global DELETE_TIME
+    if cb.data == "inc":
+        DELETE_TIME += 5
+        await cb.answer(f"New Delay: {DELETE_TIME}s", show_alert=True)
+    elif cb.data == "dec":
+        DELETE_TIME = max(5, DELETE_TIME - 5)
+        await cb.answer(f"New Delay: {DELETE_TIME}s", show_alert=True)
+    elif cb.data == "noop":
+        await cb.answer(f"Current Delay: {DELETE_TIME}s", show_alert=True)
 
-@app_flask.route('/status')
-def status():
-    return f"✅ Running | Delete time: {DELETE_TIME}s | Owner: {OWNER_ID}"
+# Flask for Koyeb
+flask_app = Flask(__name__)
+
+@flask_app.route('/')
+def home():
+    return "✅ Bot is healthy!"
 
 def run_flask():
-    app_flask.run(host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
+    port = int(os.getenv("PORT", 8000))
+    flask_app.run(host="0.0.0.0", port=port)
 
+# Start Flask
 threading.Thread(target=run_flask).start()
 
+# Run bot
 print("Bot Started...")
 app.run()
