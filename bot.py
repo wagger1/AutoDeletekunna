@@ -197,4 +197,6 @@ async def main():
     await idle()
 
 print("🔁 Starting bot...")
-async.run(main())
+
+if __name__ == "__main__":
+    asyncio.run(main())
