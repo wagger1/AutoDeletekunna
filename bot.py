@@ -261,11 +261,4 @@ async def send_startup_log():
         print(f"❌ Failed to send restart log: {e}")
 
 # === Start Bot ===
-if __name__ == "__main__":
-    port = int(os.getenv("PORT", 8000))
-    threading.Thread(
-        target=lambda: app.run(host="0.0.0.0", port=port, debug=False),
-        daemon=True,
-    ).start()
-    bot.run()
-   
+bot.run()
