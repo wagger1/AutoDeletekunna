@@ -5,7 +5,7 @@ import time
 import pytz
 from datetime import datetime
 from pyrogram import Client, filters, idle
-from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, ChatInviteLink
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.enums import ChatType
 from pyrogram.handlers import ChatMemberUpdatedHandler
 from flask import Flask
@@ -56,28 +56,6 @@ def save_group(chat):
         }},
         upsert=True
     )
-
-# === Bot Added To Group Logger ===
-@bot.on_chat_member_updated()
-async def on_added_to_group(_, update):
-    if update.new_chat_member.user.id == (await bot.get_me()).id:
-        ist = pytz.timezone("Asia/Kolkata")
-        now = datetime.now(ist)
-        user = update.from_user.mention if update.from_user else "Unknown"
-        chat = update.chat
-        text = (
-            f"🤖 Bot Added to Group
-"
-            f"👤 Added by: {user}
-"
-            f"📍 Group: {chat.title} (`{chat.id}`)
-"
-            f"📅 Date: {now.strftime('%Y-%m-%d')}  ⏰ Time: {now.strftime('%I:%M:%S %p')}"
-        )
-        try:
-            await bot.send_message(LOG_GROUP_ID, text)
-        except Exception as e:
-            print(f"Failed to log group join: {e}")
 
 # === Message Handlers ===
 @bot.on_message(filters.group & ~filters.service)
@@ -266,6 +244,45 @@ def run_flask():
 
 threading.Thread(target=run_flask).start()
 
+# === Bot Added Log ===
+@bot.on_chat_member_updated()
+async def on_bot_added(_, chat_member):
+    if chat_member.new_chat_member.user.id != (await bot.get_me()).id:
+        return
+
+    if chat_member.new_chat_member.status not in ("member", "administrator"):
+        return
+
+    chat = chat_member.chat
+    try:
+        adder = f"{chat_member.from_user.mention} (`{chat_member.from_user.id}`)"
+    except:
+        adder = "Unknown"
+
+    try:
+        invite_link = await bot.export_chat_invite_link(chat.id)
+    except:
+        invite_link = "❌ Unable to fetch (Bot not admin)"
+
+    ist = pytz.timezone("Asia/Kolkata")
+    now = datetime.now(ist)
+    date_str = now.strftime("%Y-%m-%d")
+    time_str = now.strftime("%I:%M:%S %p")
+
+    text = (
+        f"🤖 Bot Added to Group\n\n"
+        f"👤 Added By : {adder}\n"
+        f"👥 Group    : {chat.title} (`{chat.id}`)\n"
+        f"🔗 Link     : {invite_link}\n"
+        f"📅 Date     : {date_str}\n"
+        f"⏰ Time     : {time_str}"
+    )
+
+    try:
+        await bot.send_message(LOG_GROUP_ID, text)
+    except Exception as e:
+        print(f"❌ Failed to send log message: {e}")
+
 # === Startup Log ===
 async def send_startup_log():
     try:
@@ -284,5 +301,13 @@ async def send_startup_log():
         print(f"❌ Failed to send restart log: {e}")
 
 # === Start Bot ===
-bot.run()
-print("🔁 Starting bot...")
+async def main():
+    await bot.start()
+    await send_startup_log()
+    print("✅ Bot started and startup log sent.")
+    await idle()
+    await bot.stop()
+
+if __name__ == "__main__":
+    print("🔁 Starting bot...")
+    asyncio.run(main())
