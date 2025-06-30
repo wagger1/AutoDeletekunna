@@ -284,5 +284,5 @@ async def send_startup_log():
         print(f"❌ Failed to send restart log: {e}")
 
 # === Start Bot ===
-print("🔁 Starting bot...")
 bot.run()
+print("🔁 Starting bot...")
